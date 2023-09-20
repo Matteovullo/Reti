@@ -1,0 +1,1216 @@
+<!doctype html public "-//W3C//DTD HTML 4.0 Transitional //EN">
+<html>
+<head>
+  <meta name="GENERATOR" content="mkd2html 2.1.8a DEBUG DL=DISCOUNT">
+  <meta http-equiv="Content-Type"
+        content="text/html; charset=utf-8">  <link rel="stylesheet"
+        type="text/css"
+        href="style.css" />
+</head>
+<body>
+<p>Appunti Reti - &copy; 2017 Mario Cianciolo &lt;mr.udda@gmail.com&gt;</p>
+
+<h1>Livello di trasporto</h1>
+
+<p>Il livello di trasporto fa in Internet quello che il livello Data Link fa in LAN:
+controllo degli errori, ordinamento in sequenza e controllo di flusso.</p>
+
+<p>L'obiettivo finale del livello di trasporto è fornire un servizio <em>end-to-end</em> efficace
+ed affidabile ai suoi utenti, che normalmente sono processi nel livello applicazione.</p>
+
+<p>L'unità di dato di questo livello non ha un nome (a differenza di frame e pacchetti
+degli strati inferiori), quindi prende il nome di <strong>TPDU</strong> (<em>Transport Protocol Data Unit</em>).</p>
+
+<h4>Servizio come libreria</h4>
+
+<p>Lo strato trasporto può essere implementato come una serie di chiamate di libreria,
+in modo da rendere l'interfaccia indipendente dagli strati inferiori.<br/>
+Questo consente allo strato trasporto di gestire reti (i primi tre strati) di
+diverso tipo, mostrando un'interfaccia unica agli strati superiori.</p>
+
+<p>Per questo motivo, i primi quattro strati possono essere visti come i <strong>fornitori
+del servizio di trasporto</strong>, mentre gli strati superiori sono gli <strong>utenti del
+servizio di trasporto</strong>.</p>
+
+<h3>Analogie e differenze con il livello Network</h3>
+
+<p>Così come esistono due tipi di servizio nello strato di rete (con o senza connessione),
+esistono due servizi analoghi nello strato di trasporto.</p>
+
+<p>La motivazione principale per questa duplicazione è che il codice dello strato
+Network viene eseguito principalmente sui router, e l'host non ha nessun controllo
+su inefficienze, pacchetti non consegnati o crash dei router.<br/>
+La soluzione è costruire sopra lo strato Network un altro strato che migliori
+la qualità del servizio.</p>
+
+<h4>Primitive</h4>
+
+<p>Le primitive fornite dallo strato di trasporto sono simili a quelle dello strato
+Network, con la differenza che queste ultime sono modellate su reti reali, mentre
+il servizio di trasporto può avere un livello di astrazione più alto.</p>
+
+<p>Inoltre la rete è generalmente inaffidabile, mentre il servizio di
+trasporto deve essere affidabile in modo trasparente per i suoi utenti.</p>
+
+<h3>Analogie e differenze con il livello Data Link</h3>
+
+<p>Per certi aspetti, i protocolli di trasporto ricordano i protocolli data link.
+Entrambi hanno a che fare, tra le altre cose, con controllo degli errori, ordinamento
+in sequenza e controllo di flusso.</p>
+
+<p>La differenza è fatta ovviamente dall'ambiente in cui operano i protocolli:
+nel livello data link i due router comunicano direttamente tramite un canale fisico,
+mentre nel livello trasporto il canale è l'intera sottorete.<br/>
+Questo ha numerose implicazioni:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Aspetto </th>
+<th> Data Link </th>
+<th> Trasporto </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>Indirizzamento</strong> </td>
+<td> Non necessario (il canale è broadcast) </td>
+<td> Necessario </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Impostazione della connessione</strong> </td>
+<td> Non necessaria (il destinatario è sempre connesso oppure non è disponibile) </td>
+<td> Necessaria </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Memoria del canale</strong> </td>
+<td> No (il frame arriva immediatamente oppure non arriva) </td>
+<td> I pacchetti inviati possono rimbalzare per qualche secondo prima di essere consegnati (ritardi/duplicati) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Buffering</strong> </td>
+<td> Buffer fissi per ogni linea </td>
+<td> L'enorme numero di possibili connessioni impedisce i buffer fissi </td>
+</tr>
+</tbody>
+</table>
+
+
+<h2>Protocolli sliding window per il controllo degli errori</h2>
+
+<p>Il protocollo di trasporto utilizza strategie di controllo degli errori
+che fanno parte della famiglia dei protocolli <strong>sliding window</strong>.</p>
+
+<h3>Stop-and-wait</h3>
+
+<p>Il protocollo <strong>Stop-and-wait</strong> è il più semplice (e inefficiente) implementazione sliding window,
+con le finestre di invio e ricezione entrambe pari a 1 TPDU.</p>
+
+<ol>
+<li>Un mittente manda una sola TPDU alla volta, dopodiché attende l'acknowledgement</li>
+<li>Il destinatario riceve il frame, verifica il checksum, e restituisce l'ACK. Se i dati contengono errori non restituisce nulla</li>
+<li>Se il mittente non riceve ACK entro un certo timeout, ritrasmette i dati</li>
+</ol>
+
+
+<p>Ogni TPDU e ACK ha un numero di sequenza, per poter scartare le TPDU ritrasmesse.</p>
+
+<h3>Go-Back-N</h3>
+
+<p>Nel protocollo <strong>Go-Back-N</strong>, la finestra di invio è maggiore di 1, mentre
+quella di ricezione è 1. Il processo mittente continua a mandare un numero di
+TPDU specificato dalla <em>window size</em>, anche senza ricevere alcun ACK.
+Mittente e destinatario necessitano di accordarsi preventivamente sul significato
+degli acknowledgement, poiché tre vie sono possibili:</p>
+
+<ul>
+<li><strong>ACK individuali</strong> (o selettivi): &ldquo;ho ricevuto il pacchetto n&rdquo;.<br/>
+All'esaurimento della finestra, se il mittente non ha tutti
+gli ACK, tornerà indietro all'ultimo numero di sequenza confermato con ACK,
+e ricomincerà l'invio creando la finestra a partire da quel punto</li>
+<li><strong>ACK cumulativi</strong>: &ldquo;ho ricevuto tutti i pacchetti fino ad n escluso&rdquo;.<br/>
+Permette di risparmiare sugli ACK inviati, ma in caso di errore va ritrasmessa l'intera finestra</li>
+<li><strong>ACK negativo</strong>: il destinatario notifica la necessità di ritrasmissione di un singolo pacchetto</li>
+</ul>
+
+
+<p>In ogni caso, il destinatario è preparato a ricevere soltanto la TPDU successiva
+all'ultima che possiede. Alla prima TPDU persa, le successive vengono scartate.</p>
+
+<p>Il metodo Go-Back-N è più efficiente, perché durante il tempo che in Stop-and-wait
+sarebbe stato di attesa (aspettare un ACK per ogni TPDU), vengono
+inviate TPDU aggiuntive a prescindere dal risultato dell'invio precedente.<br/>
+Questa modalità di trasmissione prende il nome di <strong>pipelining</strong>.</p>
+
+<h3>Ripetizione selettiva</h3>
+
+<p>La <strong>ripetizione selettiva</strong> è l'implementazione più generica (ma anche la più
+complessa ed efficiente) del protocollo sliding window.<br/>
+Entrambe le finestre hanno valori maggiori di 1, ciò significa che sia mittente che
+destinatario hanno un buffer dove conservano le TPDU:</p>
+
+<ul>
+<li>il mittente conserva quelle ancora non confermate</li>
+<li>il destinatario conserva quelle fuori ordine</li>
+</ul>
+
+
+<p>Il mittente utilizza il pipelining, e il ricevente accetta qualunque TPDU valida all'interno della finestra.</p>
+
+<p>Gli ACK funzionano esattamente come in Go-Back-N, con la differenza che il ricevente non scarta le TPDU fuori ordine.</p>
+
+<h2>Tempi e velocità di trasferimento</h2>
+
+<h4>Tempo di trasmissione</h4>
+
+<p>I dati vengono immessi in un canale di trasmissione alla velocità di trasmissione
+(<strong>bitrate</strong>) consentita dal mezzo e dal metodo di trasmissione.</p>
+
+<p>Ad esempio, la velocità di 10 Mbps di Ethernet corrisponde ad un ingresso di 10<sup>7</sup> bit
+al secondo nella linea, ovvero che un bit viene immesso nel cavo ogni 0.1 &micro;s.<br/>
+Un intero frame Ethernet (1500 byte = 12000 bit) sarà quindi completamente immesso
+nel canale dopo il <strong>tempo di trasmissione</strong> di 1200 &micro;s.</p>
+
+<h4>Tempo di propagazione</h4>
+
+<p>Il <strong>tempo di propagazione</strong> o <strong>latenza</strong> di un canale trasmissivo è il tempo
+che un segnale (il singolo bit) impiega a percorrerlo per intero.<br/>
+Per continuare con l'esempio di Ethernet, i cavi in rame hanno una velocità di
+propagazione di circa 200000 km/s, quindi in un cavo di 1 km un bit arriva da
+un capo all'altro del cavo in 5 &micro;s.<br/>
+(nel tempo di 5 &micro;s che un bit impiega per arrivare a destinazione, possono
+essere trasmessi altri 50 bit)</p>
+
+<h4>Tempo di consegna</h4>
+
+<p>Il <strong>tempo di consegna</strong> è il tempo che impiega una PDU (frame, pacchetto o segmento)
+per essere completamente trasmessa a destinazione. Si ottiene sommando il tempo
+di trasmissione e il tempo di propagazione.</p>
+
+<p><strong>T<sub>consegna</sub> = T<sub>trasmissione</sub> + T<sub>propagazione</sub></strong></p>
+
+<p>Il tempo di consegna nelle reti che non sono costituite da un solo canale fisico
+(come Internet), il tempo di consegna dipende anche da altri fattori (come
+la congestione e la coda di invio).</p>
+
+<h3>Round Trip Time</h3>
+
+<p>Il Round Trip Time (o <em>ping time</em>) è il tempo che intercorre tra l'inizio della
+trasmissione alla ricezione della risposta (ACK).<br/>
+È costituito dal tempo che impiegano le due PDU a viaggiare più il tempo impiegato
+dal nodo ricevente per elaborare la risposta:</p>
+
+<p><strong>RTT = 2 × T<sub>consegna</sub> + T<sub>elaborazione</sub></strong></p>
+
+<p>Se le dimensioni delle PDU di dati e di ACK sono diverse, saranno diversi anche
+i tempi di consegna, quindi la formula va specializzata:</p>
+
+<p><strong>RTT = T<sub>dati</sub> +T<sub>ack</sub> + T<sub>elaborazione</sub></strong></p>
+
+<h3>Throughput</h3>
+
+<p>Il throughput, o <strong>bitrate effettivo</strong>, è la velocità di trasferimento fornita al livello superiore.</p>
+
+<p>Il throughput, di una connessione con controllo di flusso (come TCP), si può calcolare come:</p>
+
+<pre>Throughput = WindowSize / RTT</pre>
+
+
+<p>Nel caso di collegamento fisico (protocolli Data Link), è equivalente a:</p>
+
+<pre>Throughput = FrameSize / RTT</pre>
+
+
+<p>Il tempo di consegna di una PDU si può calcolare noto il throughput:</p>
+
+<p><strong>T<sub>consegna</sub> = PduSize / Throughput</strong></p>
+
+<h2>RDT (Reliable Data Transfer): implementazione di un semplice protocollo affidabile</h2>
+
+<p><img src="06_rdt_service.gif" alt="Servizio RDT" /></p>
+
+<h3>RDT 1.0: Trasferimento affidabile su un canale affidabile</h3>
+
+<p>Consideriamo per cominciare il caso di un canale affidabile. La FSM è mostrata di seguito:</p>
+
+<p><img src="06_rdt_1.0.gif" alt="RDT 1.0" /></p>
+
+<p>Mittente e destinatario hanno solo uno stato. Gli strati superiori usano <code>rdt_send()</code> per inviare dati.<br/>
+Il mittente inserisce i dati in un pacchetto (<code>make_pkt()</code>) che inviano nel canale.<br/>
+Il ricevente recupera il pacchetto (<code>rdt_rcv()</code>), estrae i dati (<code>extract()</code>) e li passa allo strato superiore che chiama <code>rdt_rcv()</code>.</p>
+
+<h3>RDT 2.0: Trasferimento affidabile su un canale con errori sui bit</h3>
+
+<p>Un modello più realistico, in cui possono presentarsi errori sui singoli bit.</p>
+
+<p><img src="06_rdt_2.0.gif" alt="RDT 2.0" /></p>
+
+<p>Questo protocollo usa due messaggi speciali (<code>ACK</code> e <code>NAK</code>) per segnalare la
+corretta ricezione o la presenza di errori.<br/>
+È necessario un meccanismo di rilevamento degli errori (checksum).</p>
+
+<p>Il mittente ha due stati, uno simile a RDT 1.0 (attesa di chiamate dall'alto), e
+l'altro in cui si trova dopo l'invio, ovvero attesa di conferma (positiva o negativa).<br/>
+Quando si trova in questo stato non può trasmettere.</p>
+
+<p>Questo tipo di protocolli è detto <strong>stop-and-wait</strong>.</p>
+
+<p>Il ricevente ha un solo stato, rispetto a RDT 1.0 ha aggiunto l'invio di una conferma
+(positiva o negativa).</p>
+
+<h3>RDT 2.1: Aggiunta dei numeri di sequenza</h3>
+
+<p>RDT 2.0 ha un fondamentale difetto: anche i pacchetti di conferma possono contenere errori.<br/>
+Il mittente potrebbe quindi non avere possibilità di distinguere una conferma positiva
+da una negativa.</p>
+
+<p>La soluzione adottata è quella di aggiungere numeri di sequenza ai messaggi (in modo che
+il ricevente possa distinguere una ritrasmissione) e inviare nuovamente i messaggi
+che non hanno ricevuto una risposta chiara. Anche le risposte (ACK o NAK)
+dovranno contenere i numeri di sequenza relativi al messaggio.</p>
+
+<p>Per questo semplice protocollo stop-and-wait, basta un numero di sequenza a 1 bit,
+quindi gli stati di mittente e ricevente raddoppiano, a seconda che si stia aspettando
+il pacchetto con numero di sequenza <code>0</code> o <code>1</code>.</p>
+
+<p><img src="06_rdt_2.1_sender.gif" alt="RDT 2.1: mittente" />
+<img src="06_rdt_2.1_receiver.gif" alt="RDT 2.1: ricevente" /></p>
+
+<p>Il NAK può corrispondere anche alla ricezione di pacchetti fuori sequenza (numero
+di sequenza errato)</p>
+
+<h3>RDT 2.2: Doppio ACK invece del NAK</h3>
+
+<p>Un ulteriore miglioramento si ottiene inviando, invece di un NAK, un altro ACK
+relativo all'ultimo pacchetto valido.</p>
+
+<p>Il mittente che riceve due ACK per lo stesso numero di sequenza, capisce che
+l'ultimo pacchetto non è stato ricevuto correttamente, e lo ritrasmette.</p>
+
+<p><img src="06_rdt_2.2_sender.gif" alt="RDT 2.2: mittente" />
+<img src="06_rdt_2.2_receiver.gif" alt="RDT 2.2: ricevente" /></p>
+
+<h3>RDT 3.0: Trasferimento affidabile su un canale inaffidabile con errori sui bit</h3>
+
+<p>Supponiamo che oltre a corrompere i pacchetti, il canale possa anche perderli.</p>
+
+<p>Il problema si risolve ritrasmettendo un pacchetto che non ottiene risposta, dopo un
+tempo almeno uguale al RTT (Round Trip Time), non troppo più grande per evitare ritardi
+eccessivi.<br/>
+In caso di normali ritardi nella rete, entrambi i pacchetti arriveranno a destinazione,
+ma già RDT 2.1 ha abbastanza informazioni per distinguere pacchetti duplicati.</p>
+
+<p>Il problema degli ACK duplicati si risolve esattamente allo stesso modo (controllando
+il numero di sequenza al quale si riferiscono).</p>
+
+<p><img src="06_rdt_3.0_sender.gif" alt="RDT 3.0: mittente" /></p>
+
+<p>Il ricevente è lo stesso della v2.2, quindi non viene mostrato.<br/>
+Questo protocollo a volte è chiamato <strong>alternating bit protocol</strong>, perché i numeri
+di sequenza sono solo <code>0</code> e <code>1</code>.</p>
+
+<h2>Elementi dei protocolli di trasporto</h2>
+
+<h3>Indirizzamento</h3>
+
+<p>Un processo ha bisogno dell'<strong>indirizzo di trasporto</strong> di un altro processo
+per poter inviare datagrammi o instaurare una connessione.</p>
+
+<p>Gli indirizzi di trasporto sono chiamati genericamente <strong>TSAP</strong> (<em>Transport
+Service Access Point</em>). In Internet i TSAP sono le <strong>porte</strong>.<br/>
+I corrispondenti punti finali dello strato Network sono detti NSAP. Gli indirizzi IP sono esempi di NSAP.</p>
+
+<p>Il motivo per cui servono i TSAP è perché in alcune reti (come Internet) ogni computer
+possiede un unico NSAP ma più TSAP (<strong>multiplexing</strong>), è quindi necessario distinguere in qualche modo
+i diversi punti finali di trasporto che condividono tale NSAP.</p>
+
+<h4>Modello client-server</h4>
+
+<p>Normalmente gli utenti dello strato di trasporto (le applicazioni) sono strutturati
+secondo il <strong>modello client-server</strong>, ovvero i processi hanno uno dei seguenti ruoli:</p>
+
+<ul>
+<li><strong>Server</strong>: fornisce servizi e condivide risorse</li>
+<li><strong>Client</strong>: utilizza servizi e risorse di un server</li>
+</ul>
+
+
+<h4>Process server e name server</h4>
+
+<p>Il tipico scenario per una connessione di trasporto è il seguente:</p>
+
+<ol>
+<li>un processo server sull'host 1 si collega ad una propria TSAP <code>X</code> in attesa di chiamate in ingresso.</li>
+<li>un processo client sull'host 2 invia alla TSAP <code>X</code> una richiesta di connessione con sorgente la propria TSAP <code>Y</code>.
+Questa azione provoca l'instaurazione di una connessione tra il client e il server</li>
+<li>il processo client invia una richiesta (in base allo scopo del server)</li>
+<li>il processo server risponde con il dato richiesto</li>
+<li>la connessione di trasporto viene rilasciata</li>
+</ol>
+
+
+<p>Il problema è che l'host 2 non può conoscere il TSAP del server.<br/>
+Alcuni processi server si collegano sempre alla stessa porta (i cosiddetti
+<strong>known services</strong>, Linux li memorizza in <code>/etc/services</code>), ma altri sono
+creati dinamicamente, o non sono sempre in esecuzione.</p>
+
+<p>La soluzione è il <strong>protocollo di connessione iniziale</strong>: un <strong>process server</strong>
+(un processo proxy) ascolta un insieme di TSAP, e crea i processi server
+quando richiesti da una connessione in arrivo. Dopodiché trasferisce la connessione
+al nuovo processo server e ritorna in ascolto dei TSAP.</p>
+
+<p><img src="06_process_server.jpg" alt="Process server" /></p>
+
+<p>Per gestire il caso di processi server già in esecuzione (quindi non creati al
+bisogno, es. file server) si utilizza un approccio diverso: un processo chiamato
+<strong>name server</strong> o <em>directory server</em>, che è in ascolto su un TSAP noto.<br/>
+I server in esecuzione si <em>registrano</em> sul name server con un nome simbolico
+(spesso ASCII) e il proprio TSAP.<br/>
+Il client si connette al TSAP del name server, e invia il nome di un servizio.
+Il name server risponde con il TSAP a cui bisogna
+collegarsi per quel server.</p>
+
+<h3>Stabilire la connessione</h3>
+
+<p>La semplice operazione di inviare una <em>connection request</em> è complicata nel caso
+in cui la rete può perdere, memorizzare e duplicare i pacchetti (il caso di Internet).</p>
+
+<h4>Problema dei duplicati ritardati</h4>
+
+<p>Soluzione 1: <strong>TSAP monouso</strong>, in modo che i duplicati siano semplicemente rifiutati.<br/>
+Difetto: questa opzione non consente di realizzare process server.</p>
+
+<p>Soluzione 2: <strong>ID di connessione</strong> da inserire in ogni TPDU.
+L'entità di trasporto mantiene una tabella e rifiuta gli ID di connessioni chiuse.<br/>
+Difetto: la tabella crescerebbe a dismisura, e si resetterebbe in caso di crash</p>
+
+<p>Soluzione 3: <strong>limitare la vita</strong> delle TPDU, tramite:</p>
+
+<ul>
+<li>progettazione di sottoreti limitate</li>
+<li>contatore di salti in ogni pacchetto</li>
+<li>timestamp a ogni pacchetto (difficile sincronizzare i router)</li>
+</ul>
+
+
+<p>Se la vita massima di una TPDU è nota, si può gestire.<br/>
+In pratica bisogna attendere un tempo <strong>T</strong>, un certo multiplo della vita massima
+della TPDU, per attendere che la rete smaltisca la TPDU e anche eventuali acknowledgement.</p>
+
+<p>Una volta noto il tempo <strong>T</strong>, basta che le due parti di accordino sul numero sequenziale
+iniziale delle TPDU, dopodiché si può usare qualsiasi protocollo <em>sliding window</em>.</p>
+
+<h4>Metodo dell'orologio</h4>
+
+<p>Ogni host è equipaggiato con un orologio giornaliero. Gli orologi non devono
+essere necessariamente sincronizzati tra loro.<br/>
+Gli orologi sono costituiti da contatori binari, con almeno lo stesso numero di bit
+del numero di sequenza, incrementati a intervalli regolari.</p>
+
+<p>Il requisito più importante è assicurare che il contatore continui a funzionare
+normalmente anche se l'host si blocca e si riavvia.</p>
+
+<p>L'host che vuole instaurare una connessione userà il valore dell'orologio come
+numero di sequenza iniziale. A questo punto, in caso di crash, basterà attendere
+per il tempo di vita di un pacchetto (chiamiamolo <strong>T</strong>) prima di riavviarsi,
+eliminando il problema dei duplicati.</p>
+
+<p><img src="06_metodo_orologio.png" alt="Metodo dell'orologio: area proibita" /></p>
+
+<p>In una internetwork complessa <strong>T</strong> può essere troppo grande da attendere,
+la soluzione è imporre una nuova limitazione sull'uso dei numeri di sequenza.<br/>
+I numeri di sequenza non devono entrare nell'<strong>area proibita</strong>, ovvero nello
+spazio di numeri di sequenza potenzialmente ancora in circolo nella rete.</p>
+
+<p>Rimane da risolvere il <strong>problema della risincronizzazione</strong>, illustrato dal grafico (b).<br/>
+I nuovi pacchetti potrebbero arrivare ad un ritmo troppo elevato, e raggiungere l'area proibita dall'alto.<br/>
+La soluzione è quella di trasmettere un pacchetto ad ogni battito di orologio (quindi i battiti devono essere molto brevi).</p>
+
+<p>L'area proibita può essere raggiunta anche dal basso, con trasmettitori troppo lenti.<br/>
+Il trasmettitore deve controllare prima dell'invio se si sta avvicinando
+all'area proibita, e attendere un tempo <strong>T</strong> prima di trasmettere.</p>
+
+<h4>Handshake a tre vie</h4>
+
+<p>Una volta eliminato il problema dei duplicati ritardati, si può instaurare la connessione.</p>
+
+<p>Dato che anche le TPDU di controllo possono essere ritardate, si utilizza il metodo
+dello <strong>handshake a tre vie</strong>, che non richiede alle due parti di accordarsi su un
+numero di sequenza iniziale.</p>
+
+<ul>
+<li>L'host 1 sceglie un numero di sequenza <code>x</code>, e invia una TPDU <code>CONNECTION REQUEST</code>
+all'host 2, contenente <code>x</code></li>
+<li>L'host 2 risponde con una TPDU <code>ACK</code> che riconosce <code>x</code>, e annuncia il suo numero
+di sequenza iniziale <code>y</code></li>
+<li>L'host 1 riconosce la scelta di <code>y</code> nella prima TPDU dati che invierà</li>
+</ul>
+
+
+<p><img src="06_3way_1.jpg" alt="Handshake a tre vie: funzionamento normale" /></p>
+
+<p>Se una TPDU duplicata e ritardata (che si riferisce a una vecchia connessione)
+dovesse ricomparire dalla rete, questa arriverebbe all'host 2 senza che l'host
+1 lo sappia.<br/>
+L'host 2 invierà la TPDU ACK, in pratica chiedendo conferma del fatto che l'host
+1 voglia instaurare una connessione. L'host 1 rifiuterà il tentativo di connessione dell'host 2 (TPDU <code>REJECT</code>).<br/>
+L'host 2 a questo punto capisce del duplicato in ritardo, e abbandona la connessione.</p>
+
+<p><img src="06_3way_2.jpg" alt="Handshake a tre vie in presenza di duplicati ritardati" /></p>
+
+<p>Il caso peggiore è quando nella sottorete sono presenti sia una <code>CONNECTION REQUEST</code>
+sia un <code>ACK</code> ritardati. Come nell'esempio precedente, l'host 2 riceve la
+<code>CONNECTION REQUEST</code> ritardata e risponde ad essa.<br/>
+Quando l'host 2 riceve anche la TPDU <code>ACK</code> ritardata, questa non conterrà il
+proprio numero di sequenza iniziale <code>y</code>, ma ne conterrà un altro <code>z</code>
+relativo ad una vecchia connessione.<br/>
+L'host 2 a questo punto capisce del duplicato in ritardo, e abbandona la connessione.</p>
+
+<p><img src="06_3way_3.jpg" alt="Handshake a tre vie in presenza di ACK ritardati" /></p>
+
+<h3>Rilascio della connessione</h3>
+
+<p>Rilasciare la connessione è più facile che stabilirla. Esistono due modi di farlo:</p>
+
+<ul>
+<li><strong>rilascio asimmetrico</strong>: quando una delle due parti interrompe il collegamento, la connessione è rilasciata. È improvviso e causa perdite di dati se l'altra parte stava inviando</li>
+<li><strong>rilascio simmetrico</strong>: connessione considerata come due distinte, da rilasciare separatamente. Un host disconnesso può continuare a ricevere dati</li>
+</ul>
+
+
+<h4>Problema dei due eserciti (sincronizzazione infinita)</h4>
+
+<p>Il problema dei due eserciti illustra il problema della sincronizzazione infinita
+che si incontra quando si deve rilasciare una connessione.<br/>
+I due eserciti blu che devono attaccare corrispondono a due host che devono rilasciare
+la connessione.</p>
+
+<p><img src="06_due_eserciti.jpg" alt="Problema dei due eserciti" /></p>
+
+<p>Immaginiamo che l'esercito bianco sia accampato a valle, e su due colline ai fianchi
+si trovino gli eserciti blu. L'esercito bianco è più grande di ciascuno
+degli eserciti blu, ma insieme gli eserciti blu sono più grandi dell'esercito bianco.
+Se un esercito blu sferra l'attacco da solo sarà sconfitto, ma se attaccano insieme saranno vittoriosi.</p>
+
+<p>Gli eserciti blu vogliono sincronizzare i loro attacchi, ma il loro unico mezzo
+di comunicazione è l'invio di messaggeri a piedi nella valle, dove potrebbero essere
+catturati dall'esercito bianco (ovvero: devono usare un canale di comunicazione inaffidabile).</p>
+
+<p>Supponiamo che il comandante di un esercito blu proponga una data per l'attacco
+simultaneo. Il comandante dell'altro esercito risponde e la risposta arriva a destinazione.<br/>
+L'attacco non avverrà comunque, perché il comandante del secondo esercito non sa
+se la sua risposta è arrivata o meno.<br/>
+Aumentando il numero di messaggi, il risultato non cambia.</p>
+
+<p>Si può provare per assurdo che non esiste un protocollo funzionante. Supponiamo che
+esista, rimuoviamo tutti i messaggi non fondamentali, e supponiamo che l'ultimo
+messaggio del protocollo non arrivi a destinazione: essendo fondamentale, l'attacco non avverrà.</p>
+
+<h4>Soluzione alla sincronizzazione infinita</h4>
+
+<p>In pratica si è disposti ad accettare dei rischi quando per il rilascio delle connessioni.
+Viene utilizzato l'handshake a tre vie, che pur non essendo infallibile, di solito è adeguato.</p>
+
+<p>La procedura viene integrata con un <strong>timer</strong> in ogni host, che esegue la
+disconnessione incondizionata se non si ottiene risposta entro un timeout.</p>
+
+<ol>
+<li>l'host 1 invia una TPDU <code>DISCONNECTION REQUEST</code>, e fa partire il timer. Al timeout
+invia un'altra TPDU <code>DISCONNECTION REQUEST</code>, e riavvia il timer, Al timeout
+rilascia la connessione.</li>
+<li>l'host 2 riceve la <code>DISCONNECTION REQUEST</code> e ne invia una a sua volta, avviando
+il timer. Al timeout rilascia la connessione.</li>
+</ol>
+
+
+<p><img src="06_disconnection_request.png" alt="Possibili esiti della disconnessione con l'handshake a tre vie" /></p>
+
+<p>NOTA: questo meccanismo è invisibile agli utenti del trasporto, che vedono soltanto
+la primitiva <code>DISCONNECT</code>.</p>
+
+<h3>Buffering</h3>
+
+<p>Nello strato data link, il trasmittente deve inserire in un buffer i frame in uscita,
+perché potrebbe essere necessario ritrasmetterli. In una rete a datagrammi (come IP)
+per lo stesso motivo, anche l'entità di trasporto che trasmette deve utilizzare il buffer.<br/>
+Se il servizio di rete è affidabile, a meno di casi particolari, non è necessario
+l'uso di buffer.</p>
+
+<p>Se il ricevitore sa che il mittente mantiene le TPDU nel buffer finché non riceve
+ACK, potrebbe decidere di rifiutare una TPDU con meno conseguenze.<br/>
+Ad esempio, potrebbe usare un buffer (di lunghezza fissa o variabile) condiviso tra
+le connessioni, e rifiutare la TPDU se non riesce ad allocare spazio nel buffer.<br/>
+A parte lo spreco di banda, non si provocano danni.</p>
+
+<h3>Multiplexing</h3>
+
+<p>Il multiplexing nel livello di trasporto è utilizzato in due modalità:</p>
+
+<ul>
+<li><strong>upward multiplexing</strong>: per attribuire le TPDU al processo appropriato, tramite diversi TSAP</li>
+<li><strong>downward multiplexing</strong>: se la rete usa circuiti virtuali, ognuno con velocità limitata, si possono usare più NSAP per aumentare la larghezza di banda</li>
+</ul>
+
+
+<p><img src="06_multiplexing.jpg" alt="Multiplexing" /></p>
+
+<h2>Congestione</h2>
+
+<p>Quando troppi pacchetti sono presenti in una porzione della sottorete, le prestazioni degradano.</p>
+
+<p><img src="06_congestione.png" alt="Congestione della rete" /></p>
+
+<p>Le principali cause di congestione sono:</p>
+
+<ol>
+<li>Link condivisi (indipendentemente dalle dimensioni della coda di invio)</li>
+<li>Processori lenti (maggiori tempi per accodamento dei buffer e aggiornamento delle tabelle)</li>
+<li>Linee a banda stretta</li>
+</ol>
+
+
+<h3>Scenario 1: due mittenti e un router con buffer illimitati</h3>
+
+<p>Consideriamo due host (A e B) con una connessione che condivide un singolo hop intermedio:
+un router con un collegamento uscente di capacità <code>R</code>.</p>
+
+<p><img src="06_congestione_scenario1.png" alt="Congestione, scenario 1" /></p>
+
+<p>Supponiamo che A e B stiano inviando contemporaneamente dati sulla connessione a
+una frequenza media di <strong>&lambda;<sub>in</sub></strong> bps. Tali dati sono <strong>originari</strong>
+(non ritrasmessi).</p>
+
+<p>Per semplificare, ignoriamo le dimensioni degli header, e non effettuiamo
+ripristino dagli errori, controllo di flusso o congestione.<br/>
+Ipotizziamo anche che i router abbiano memoria illimitata per la <em>coda di invio</em>
+(usata quando la frequenza di arrivo è maggiore della capacità del collegamento uscente).</p>
+
+<p><img src="06_congestione_scenario1_grafico.png" alt="Congestione, grafico scenario 1" /></p>
+
+<p>Il grafico a sinistra mostra il throughput per connessione in funzione del tasso di invio.<br/>
+Fin quando questo valore non supera <code>R/2</code>, il throughput del ricevente equivale alla
+frequenza di invio del mittente.
+Superando questo valore, il throughput resta <code>R/2</code>, a causa della condivisione
+della capacità di collegamento tra le due connessioni.</p>
+
+<p>Si potrebbe supporre che sia un buon risultato, visto che la capacità del
+collegamento è utilizzata appieno. Tuttavia, il grafico a destra mostra che
+più ci si avvicina a R/2, più il ritardo cresce asintotocamente, a causa
+dell'allungamento della coda di invio.</p>
+
+<h3>Scenario 2: due mittenti e un router con buffer finiti</h3>
+
+<p>Ipotizziamo adesso che la dimensione del router sia finita.</p>
+
+<p><img src="06_congestione_scenario2.png" alt="Congestione, scenario 2" /></p>
+
+<p>Una prima conseguenza è che i pacchetti che arrivano al router
+con la coda piena saranno scartati.<br/>
+Ipotizziamo anche che le due connessioni siano affidabili, quindi se un
+pacchetto viene scartato dal router, prima o poi l'host lo ritrasmetterà.<br/>
+La <strong>frequenza di trasmissione</strong> rimane a indicare la frequenza di invio di
+pacchetti originari, mentre indichiamo con <strong>&lambda;&lsquo;<sub>in</sub></strong> bps il
+<strong>carico offerto</strong> alla rete, ovvero l'insieme di dati originari e dati ritrasmessi.</p>
+
+<p><img src="06_congestione_scenario2_grafico.png" alt="Congestione, grafico scenario 2" /></p>
+
+<p>Le prestazioni dipendono dalle modalità di ritrasmissione:</p>
+
+<ul>
+<li><p>il mittente trasmette solo quando il buffer ha spazio in coda (situazione ideale ma improbabile):<br/>
+non c'è smarrimento di pacchetti, quindi <strong>&lambda;<sub>in</sub></strong> = <strong>&lambda;&lsquo;<sub>in</sub></strong>,
+e il throughput è uguale al caso precedente (grafico a sinistra)</p></li>
+<li><p>il mittente ritrasmette solo quando è certo che il pacchetto è stato scartato,
+grazie ad un timeout esatto (ipotesi leggermente forzata ma più probabile):<br/>
+<strong>&lambda;<sub>in</sub></strong> &lt; <strong>&lambda;&lsquo;<sub>in</sub></strong>, e il throughput è minore,
+come illustrato nel grafico a destra (dove si suppone che <strong>&lambda;<sub>in</sub></strong> = 2/3 <strong>&lambda;&rsquo;<sub>in</sub></strong>,
+ovvero che 1/3 dei pacchetti sono ritrasmessi, quindi il throughput è R/2 * 2/3 = R/3)</p></li>
+<li><p>il mittente ritrasmette anche i pacchetti solo in ritardo, per via di un timeout troppo basso (ipotesi più realistica):<br/>
+supponendo che ogni pacchetto venga ritrasmesso (quindi &lambda;<sub>in</sub> = &lambda;&lsquo;<sub>in</sub>/2),
+il throughput scenderà a R/2 * &frac12; = R/4 (come mostrato nel grafico a sinistra)</p></li>
+</ul>
+
+
+<p>I costi della congestione sono il maggior lavoro da eseguire per un dato throughput,
+e il fatto che le ritrasmissioni superflue (più copie del pacchetto in transito)
+riducono la banda complessiva.</p>
+
+<h3>Scenario 3: quattro mittenti, router con buffer finiti e percorsi multihop</h3>
+
+<p>Ipotizziamo che i pacchetti siano trasmessi da quattro host (tutti con media
+&lambda;<sub>in</sub>), ciascuno su percorsi a due hop sovrapposti (ad esempio
+A-C e B-D).<br/>
+Ciascun host utilizza un meccanismo di timeout e ritrasmissione simile al caso precedente per l'affidabilità.</p>
+
+<p><img src="06_congestione_scenario3.png" alt="Congestione, scenario 3" /></p>
+
+<p>Consideriamo i collegamenti a due hop (A-C e B-D): questi condividono sempre un router.<br/>
+Per valori piccoli di &lambda;<sub>in</sub>, &lambda;<sub>out</sub> segue linearmente, visto che gli overflow sono rari.</p>
+
+<p>Quando &lambda;<sub>in</sub> (e quindi &lambda;&lsquo;<sub>in</sub>) cresce, il router
+in comune tra i due collegamenti riempie la propria coda e inizia a scartare i pacchetti.<br/>
+Prendendo ad esempio il comportamento al limite del router <strong>R2</strong>, quando il carico
+offerto tende all'infinito, un buffer vuoto verrà immediatamente colmato dal carico
+offerto da B-D, quindi in caso di carico pesante il throughput della connessione A-C tenderà a 0.</p>
+
+<p><img src="06_congestione_scenario3_grafico.png" alt="Congestione, grafico scenario 3" /></p>
+
+<p>Notiamo un altro costo della congestione: quando un pacchetto viene scartato, tutta la banda usata
+dai router lungo il percorso per consegnarlo è stata sprecata.</p>
+
+<h2>UDP</h2>
+
+<p><small>(premessa: in TCP e UDP, le TPDU sono chiamate <strong>segmenti</strong>, e i TSAP sono chiamati <strong>porte</strong>)</small></p>
+
+<p><strong>UDP</strong> (<em>User Datagram Protocol</em>) è il protocollo di trasporto senza connessione
+usato in Internet. Fondamentalmente equivale a IP con l'aggiunta di una breve
+intestazione.</p>
+
+<p>UDP non si occupa di controllo di flusso, controllo degli errori o ritrasmissione.</p>
+
+<p>Esempi di utilizzo:</p>
+
+<ul>
+<li>RPC (Remote Procedure Call)</li>
+<li>RTP (Real-time Transport Protocol)</li>
+</ul>
+
+
+<h3>Header UDP</h3>
+
+<p>Un <strong>segmento</strong> UDP consiste in un'intestazione di 8 byte seguita dal carico utile.
+L'unica informazione strettamente di trasporto sono i numeri di <strong>porta</strong>. Seguono
+lunghezza dei dati e checksum.</p>
+
+<p><img src="06_udp_header.jpg" alt="Header UDP" /></p>
+
+<ul>
+<li><strong>Source port</strong>: porta del mittente, principalmente usata per inviare una risposta all'origine</li>
+<li><strong>Destination port</strong>: porta di destinazione</li>
+<li><strong>UDP length</strong>: dimensione totale del segmento (compreso header)</li>
+<li><strong>UDP checksum</strong>: checksum: facoltativo, impostato a 0 se non usato (es. voce digitalizzata)</li>
+</ul>
+
+
+<h2>TCP</h2>
+
+<p><strong>TCP</strong> (<em>Transmission Control Protocol</em>) si adatta dinamicamente alle proprietà
+variabili delle sottoreti di Internet, e resiste a molti tipi di errore.<br/>
+Fornisce un servizio di consegna affidabile e in sequenza.</p>
+
+<h3>Modello di servizio TCP</h3>
+
+<p>L'endpoint TCP (e UDP) si chiama <strong>socket</strong>. Ogni socket possiede un <strong>numero di socket</strong>
+univoco, composto dall'indirizzo IP dell'host e un numero di porta (16 bit) locale all'host.</p>
+
+<p>Per ottenere il servizio TCP, si deve stabilire una connessione tra le due socket.<br/>
+Una connessione TCP è identificata dalla coppia dei numeri di socket di entrambe
+le estremità, dunque una socket può far parte di più connessioni.</p>
+
+<p>Le connessioni TCP sono di tipo <strong>full-duplex punto-punto</strong>.</p>
+
+<h4>Well-known ports</h4>
+
+<p>I numeri di porta minori di 1024 identificano le <strong>well-known ports</strong>, e sono
+riservati ai servizi standard (FTP 21, Telnet 23, HTTP 80).<br/>
+Le well-known ports sono definite da <strong>IANA</strong> (<em>Internet Assigned Numbers Authority</em>)-</p>
+
+<p>In UNIX esiste un <em>process server</em> chiamato <strong>inetd</strong>, che si occupa di avviare
+i processi quando riceve una connessione ad una specifica well-known port.</p>
+
+<h4>Flusso di byte</h4>
+
+<p>I dati sono ricevuti come flusso indistinto di byte, non come flusso di messaggi.</p>
+
+<p>In altre parole, non si conservano i confini dei messaggi, e non c'è modo (in questo
+strato) di sapere in quanti datagrammi sono stati suddivisi i dati.</p>
+
+<h3>Header TCP</h3>
+
+<p>Un <strong>segmento</strong> TCP consiste in un'intestazione fissa di 20 byte (più una parte
+facoltativa) seguita dai dati. Sono ammessi segmenti senza dati, ampiamente
+utilizzati per acknowledgement e messaggi di controllo.</p>
+
+<p>Il software TCP decide quanti byte del flusso in ingresso vanno nei singoli segmenti.
+In pratica, esistono dei limiti di dimensione: il segmento (compresa l'intestazione):</p>
+
+<ul>
+<li>deve essere contenuto nel carico utile di un pacchetto, nel caso di IP: 65535 - 20 (header IP) - 20 (header TCP) = 65495 byte</li>
+<li>deve essere contenuto nella MTU della rete (1500 byte per Ethernet)</li>
+</ul>
+
+
+<p><img src="06_tcp_header.jpg" alt="Header TCP" /></p>
+
+<ul>
+<li><strong>Source port</strong>, <strong>Destination port</strong>: estremi locali della connessione</li>
+<li><strong>Sequence number</strong>: numero di sequenza del byte iniziale contenuto nel segmento</li>
+<li><strong>Acknowledgement number</strong>: numero di sequenza del PROSSIMO byte che si aspetta di ricevere (quindi il numero di sequenza dell'ultimo byte ricevuto + 1)</li>
+<li><strong>TCP Header Length</strong>: lunghezza header in unità di parole da 32 bit</li>
+<li>(campo di 6 bit inutilizzato)</li>
+<li><strong>URG</strong>: flag attivo quando si usa il campo <em>Urgent Pointer</em></li>
+<li><strong>ACK</strong>: flag attivo quando si usa il campo <em>Acknowledgement number</em></li>
+<li><strong>PSH</strong>: flag attivo quando sono presenti dati PUSH: viene chiesto al ricevente
+di consegnare subito all'applicazione i dati in suo possesso fino a quel
+momento, senza attendere il riempimento del buffer</li>
+<li><strong>RST</strong>: flag usato per reimpostare o rifiutare (NAK) una connessione. In generale è attivo in caso di problemi</li>
+<li><strong>SYN</strong>: flag usato per stabilire le connessioni:
+
+<ul>
+<li>il segmento <code>CONNECTION REQUEST</code> presenta <strong>SYN</strong> = <code>1</code> e <strong>ACK</strong> = <code>0</code></li>
+<li>il segmento <code>CONNECTION ACCEPTED</code> presenta <strong>SYN</strong> = <code>1</code> e <strong>ACK</strong> = <code>1</code></li>
+</ul>
+</li>
+<li><strong>FIN</strong>: flag usato per rilasciare una connessione, quando il mittente non ha più dati da trasmettere (ma può ancora ricevere)</li>
+<li><strong>Window size</strong>: dimensione della finestra di ricezione, indica quanti byte possono essere trasmessi a partire
+dall'ultimo che ha ricevuto acknowledgement. Un valore <code>0</code> indica di non inviare dati.</li>
+<li><strong>Checksum</strong>: calcolato includendo una <em>pseudointestazione</em> che contiene gli indirizzi IP (anche in UDP).<br/>
+Questo permette di rilevare pacchetti consegnati in modo errato, ma viola la separazione degli strati</li>
+<li><strong>Options</strong>: permettono di aggiungere caratteristiche aggiuntive:
+
+<ul>
+<li><strong>MSS</strong> (<em>Maximum Segment Size</em>): massimo carico utile che un host è in grado di supportare (default: 576 - 20 - 20  = <strong>536</strong> byte)</li>
+<li><strong>window scale</strong>: shift del campo <em>Window size</em> (16 bit) a sinistra di 14 posti, per specificare valori fino a 2<sup>30</sup> (invece che fino a 2<sup>16</sup>)</li>
+<li>utilizzare la <strong>ripetizione selettiva</strong> (con i <strong>NAK</strong>) invece del protocollo <em>go back n</em></li>
+</ul>
+</li>
+</ul>
+
+
+<h3>Instaurazione della connessione in TCP</h3>
+
+<p>Le connessioni in TCP vengono stabilite mediante l'<strong>handshake a tre vie</strong>.</p>
+
+<ol>
+<li>un lato (es. <em>server</em>) attende in modo passivo una connessione (tramite le primitive
+<code>LISTEN</code> e <code>ACCEPT</code>), indicando un'origine specifica oppure nessuna in particolare</li>
+<li>l'altro lato (es. <em>client</em>) esegue la primitiva <code>CONNECT</code>, specificando l'indirizzo
+IP e la porta a cui vuole connettersi. TCP invierà un segmento con <strong>SYN</strong> = <code>1</code>
+e <strong>ACK</strong> = <code>0</code> e attenderà una risposta</li>
+<li>a destinazione, l'entità TCP controlla se esiste un processo che ha eseguito
+<code>LISTEN</code> sulla porta indicata, e in caso negativo invia un segmento con <strong>RST</strong> = <code>1</code>
+per rifiutare la connessione</li>
+<li>se invece un processo è in ascolto, riceve il segmento TCP in ingresso, e può
+accettare o rifiutare la connessione. Se accetta viene trasmesso un segmento
+con <strong>SYN</strong> = <code>1</code> e <strong>ACK</strong> = <code>1</code></li>
+</ol>
+
+
+<p><img src="06_tcp_connessione.jpg" alt="Connessione in TCP" /></p>
+
+<p>Se due host tentano contemporaneamente di creare una connessione tra la stessa
+coppia di socket (caso (b) nell'immagine sopra), entrambe avranno successo,
+ma verrà creata un'unica connessione (in quanto è individuata dai due numeri di socket).</p>
+
+<p>Il numero iniziale della sequenza non è <code>0</code>. Si usa uno schema basato su orologio,
+con un battito ogni 4 &micro;s.<br/>
+Dopo un crash, un host attende prima di riavviarsi, per un tempo pari a quello
+di vita massimo del pacchetto, in modo da garantire che non vi siano in circolazione
+vecchi pacchetti di connessioni precedenti.</p>
+
+<h3>Rilascio della connessione in TCP</h3>
+
+<p>Le connessioni TCP, che sono full duplex, possono essere immaginate come una
+coppia di connessioni simplex, dove ognuna è rilasciata in modo indipendente
+dall'altra.</p>
+
+<p>Per rilasciare la connessione, entrambe le parti possono inviare un segmento
+con <strong>FIN</strong> = <code>1</code>. Quando questo segmento riceve acknowledgement quella direzione
+non può più trasmettere. Tuttavia, l'altra metà della connessione può ancora trasmettere
+indefinitamente.</p>
+
+<p>Normalmente sono necessari quattro segmenti per terminare una connessione (due
+FIN e due ACK), ma accorpando il primo ACK nel secondo FIN si arriva a tre.</p>
+
+<p>Per evitare il problema dei due eserciti si usano i timer. Se una risposta a FIN
+non arriva entro la durata massima di due pacchetti, la connessione viene rilasciata.<br/>
+L'altra parte noterà che non ottiene più risposte e andrà in timeout.</p>
+
+<h3>Trasmissione in TCP</h3>
+
+<p>Il protocollo di base usato dalle entità TCP è il protocollo <strong>sliding window</strong>.<br/>
+Per evitare eccessivi ritardi e perdite di dati, vengono usati dei timer:</p>
+
+<ol>
+<li>quando il mittente trasmette un segmento avvia anche un timer</li>
+<li>quando il segmento arriva a destinazione, il ricevente invia un segmento (con
+dati se esistono, oppure senza) contenente il numero di acknowledgement uguale
+al numero di sequenza successivo che prevede di ricevere</li>
+<li>se il timer del mittente scade prima della ricezione di ACK, il segmento viene
+ritrasmesso</li>
+</ol>
+
+
+<p>Per risparmiare banda, viene usato il <strong>piggybacking</strong>: nel caso di flussi di
+informazione bidirezionali, consiste nell'inviare l'acknowledgement nell'intestazione
+del segmento dati successivo, evitando l'invio di due segmenti consecutivi.</p>
+
+<h4>Dimensione della sliding window</h4>
+
+<p>Il criterio di trasmissione in TCP è basato sulla dimensione della finestra di ricezione
+del destinatario (campo <em>Window size</em> dell'intestazione).</p>
+
+<p>Il ricevente deve rispondere ad un segmento dati con un altro segmento:</p>
+
+<ul>
+<li><strong>ACK</strong> = <code>1</code> per indicare che il campo <em>Acknowledgement number</em> è usato</li>
+<li><strong>Acknowledgement number</strong> pari al numero di sequenza dell'ultimo bit ricevuto + 1</li>
+<li><strong>Window size</strong> pari allo spazio di buffer disponibile.<br/>
+Il mittente saprà che può inviare al massimo questo numero di byte, partendo da quello di indice indicato nel campo <em>Acknowledgement number</em>.</li>
+</ul>
+
+
+<p><img src="06_tcp_sliding_window.jpg" alt="Sliding window in TCP" /></p>
+
+<p>Il ricevente può anche inviare un ACK con <em>Window size</em> = <code>0</code>, per indicare che
+per il momento il mittente non deve inviare altri segmenti (es: buffer pieno).<br/>
+Appena il ricevente è in grado di ricevere nuovamente (es: il buffer si è svuotato)
+può riattivare l'invio inviando un segmento con stesso <em>Acknowledgement number</em>
+e <em>Window size</em> diverso da zero.</p>
+
+<p>Quando la <em>Window size</em> annunciata è zero, il mittente non può inviare dati, tranne
+che nei seguenti casi particolari:</p>
+
+<ul>
+<li>dati urgenti (<strong>URG</strong> = <code>1</code>)</li>
+<li>invio di un segmento da 1 byte, per fare in modo che il ricevente annunci
+di nuovo <em>Acknowledgement number</em> e <em>Window size</em> (utile nel caso di perdita
+del precedente ACK)</li>
+</ul>
+
+
+<h4>Accorgimenti per migliorare le prestazioni in TCP</h4>
+
+<p>I mittenti non sono obbligati a trasmettere i dati appena sono disponibili, e i
+riceventi non sono obbligati a trasmettere gli acknowledgement il prima possibile.<br/>
+Questa libertà viene usata per migliorare le prestazioni.</p>
+
+<p>Esistono due algoritmi complementari, per gestire mittenti che inviano un byte
+alla volta, e riceventi che leggono un byte alla volta dal proprio buffer.<br/>
+Questi due algoritmi sono utilizzati spesso insieme, e sono spiegati di seguito.</p>
+
+<h5>Caso dell'editor interattivo</h5>
+
+<p>Consideriamo il caso di una connessione Internet ad un editor interattivo.
+Alla pressione di un tasto:</p>
+
+<ol>
+<li>viene inviato un byte via TCP: 1 + 20 (header TCP) + 20 (header IP) = 41 byte</li>
+<li>ritorna ACK: 40 byte</li>
+<li>l'editor invia il cambiamento di stato della finestra: al minimo 41 byte</li>
+<li>ritorna ACK: 40 byte</li>
+</ol>
+
+
+<p>Vengono usati almeno 162 byte e quattro segmenti per digitare un solo carattere.</p>
+
+<p>Per ridurre il carico di rete causato dal ricevente, l'approccio usato da TCP è quello
+di ritardare gli acknowledgement e gli aggiornamenti della finestra di <strong>500 ms</strong>,
+in modo da tentare di raccogliere altri dati in questo intervallo di tempo, e
+inviare tutto in un unico segmento.</p>
+
+<p>Per ridurre il carico di rete causato dal mittente, si utilizza l'<strong>algoritmo di Nagle</strong>:
+quando i dati arrivano un byte alla volta, si invia il primo byte, e si memorizzano i
+successivi in un buffer fino alla ricezione del segmento ACK, o finché i dati
+accumulati non raggiungono la lunghezza di metà finestra o la <em>MSS</em>.<br/>
+Questo algoritmo fa risparmiare banda, ma non è adatto ad alcuni contesti, per
+esempio per i movimenti del mouse nelle sessioni interattive di X Window.</p>
+
+<h5>Silly window syndrome</h5>
+
+<p>Il problema <em>speculare</em> che può degradare le prestazioni di TCP è la <strong>silly window syndrome</strong>:
+i pacchetti vengono passati all'entità TCP di invio in blocchi grandi, ma
+l'applicazione interattiva sul lato ricevente li legge un byte alla volta.</p>
+
+<p>Questo comporta l'invio frequente di segmenti che annunciano finestre di ricezione
+di 1 byte, e conseguenti segmenti dati da 1 byte per riempire la finestra.</p>
+
+<p>La soluzione sta nell'impedire di annunciare finestre di ricezione molto piccole,
+ma aspettare che nel buffer si liberi una certa quantità di spazio.</p>
+
+<h5>Chiamate READ bloccanti</h5>
+
+<p>TCP può rendere bloccante una chiamata a <code>READ</code> fino ad ottenere una certa
+quantità di dati, per evitare l'overhead di chiamate multiple.</p>
+
+<h3>Controllo della congestione in TCP</h3>
+
+<p>La congestione si verifica quando il carico applicato ad una rete è superiore a
+quanto la rete può gestire.</p>
+
+<p>Anche se lo strato Network tenta di gestire le congestioni, la maggior parte del
+lavoro è svolta da TCP percné la vera soluzione alle congestioni è diminuire
+la velocità dei dati.</p>
+
+<p>La soluzione di Internet consiste nel comprendere l'esistenza di due problemi
+potenziali: capacità del ricevente e capacità della rete.<br/>
+Oltre alla finestra di ricezione, gestita dal ricevente, il mittente mantiene la
+<strong>finestra di congestione</strong>, ovvero il valore che ritiene sia adatto per non
+sovraccaricare la rete. Il valore più piccolo tra i due sarà il numero di byte
+inviato nel prossimo segmento.</p>
+
+<h4>Algoritmo avvio lento</h4>
+
+<p>L'algoritmo per il calcolo della finestra di congestione è detto <strong>avvio lento</strong>,
+anche se in realtà non è affatto lento, perché la finestra tende
+al suo valore finale inizialmente in modo esponenziale, dopodiché, superata una data
+<strong>soglia</strong>, in modo lineare.</p>
+
+<p>Chiamiamo il valore della finestra di congestione <strong>C</strong>, il valore della soglia <strong>S</strong>,
+e la dimensione massima di un segmento <strong>MSS</strong>.<br/>
+L'algoritmo è il seguente:</p>
+
+<ol>
+<li>Inizialmente, <strong>C</strong> = <strong>MSS</strong>. Il mittente invia un pacchetto di dimensione massima (MSS)</li>
+<li>Se questo pacchetto riceve ACK prima della scadenza del timer di ritrasmissione, <strong>C</strong> viene raddoppiato</li>
+<li>Vengono inviati due segmenti, se entrambi ricevono ACK, <strong>C</strong> viene ulteriormente raddoppiato</li>
+<li>Il precedente passaggio è ripetuto finché alcuni segmenti non ricevono ACK entro il timeout di ritrasmissione</li>
+<li>Al primo timeout, la soglia viene impostata all'ultimo valore che non aveva dato problemi (<strong>S</strong> = <strong>C</strong> / 2). La finestra di congestione viene reimpostata (<strong>C</strong> = <strong>MSS</strong>)</li>
+<li>Dalla successiva esecuzione dell'algoritmo, appena <strong>C</strong> raggiunge <strong>S</strong>, la crescita avverrà linearmente (un segmento alla volta) e non esponenzialmente (con continui raddoppi)</li>
+<li>In ogni caso, l'algoritmo si ferma al raggiungimento della finestra di ricezione</li>
+</ol>
+
+
+<p>Il fatto che la finestra di congestione sia incrementata linearmente (a regime)
+ma decrementata dimezzandola, è chiamato <strong>Additive increase/multiplicative decrease</strong> (<em>AIMD</em>).</p>
+
+<h4>Fast retransmit</h4>
+
+<p>Per evitare di rallentare troppo la comunicazione in caso di perdite di
+pacchetti, si utilizza un meccanismo detto <strong>Fast Retransmit</strong>.<br/>
+Se uno o più pacchetti vengono persi, i successivi segmenti saranno ricevuti
+fuori ordine, e saranno quindi scartati in alcune implementazioni di
+sliding window.</p>
+
+<p>Per questi segmenti fuori ordine, invece di non mandare nulla, viene mandato
+un <strong>ACK duplicato</strong> relativo all’ultimo segmento arrivato in ordine.<br/>
+Il mittente che riceve almeno tre ACK duplicati, è abbastanza sicuro che i segmenti
+successivi sono stati scartati, e provvede immediatamente a inviare il primo segmento
+perso, ricollocando la finestra di invio.</p>
+
+<h4>TCP Tahoe e Reno</h4>
+
+<p>Si tratta di due <strong>algoritmi per il controllo della congestione</strong>, eseguiti dopo
+un <em>fast retransmit</em>, causato da ACK duplicati.</p>
+
+<p>I due diversi algoritmi reagiscono diversamente alla perdita di un pacchetto.<br/>
+Detta <strong>C</strong> la finestra di congestione e <strong>S</strong> la soglia dell'avvio lento:</p>
+
+<ul>
+<li><strong>Tahoe</strong> imposta <strong>S</strong> a metà di <strong>C</strong>, riduce <strong>C</strong> a 1 MSS, e riavvia l'avvio lento da capo</li>
+<li><strong>Reno</strong> imposta <strong>S</strong> a metà di <strong>C</strong>, e dimezza <strong>C</strong> (che quindi è ora uguale a <strong>S</strong>). Dopodiché entra in una fase chiamata <strong>Fast Recovery</strong>, al cui termine l'avvio lento riprenderà dalla soglia (quindi linearmente)</li>
+</ul>
+
+
+<p>TCP Reno non gestisce bene più perdite nella stessa finestra di invio. In tutti
+gli altri casi, anche grazie alla fase <em>Fast Recovery</em>, offre prestazioni
+migliori di Tahoe, che ha quasi sostituito in Internet.</p>
+
+<p><img src="06_tahoe_reno.png" alt="Tahoe e Reno" /></p>
+
+<p>In entrambi i tipi di TCP, in caso di timeout si esegue l'avvio lento dall'inizio (<strong>C</strong> = 1 MSS).</p>
+
+<h5>Fast Recovery (solo Reno)</h5>
+
+<p>In questa fase, TCP ritrasmette il segmento perso, e aspetta acknowledgment
+dell'intera finestra di invio prima di modificare ancora la finestra di congestione.<br/>
+Se l'acknowledgment non arriva entro un timeout, TCP Reno riprende l'avvio lento da capo, come Tahoe.</p>
+
+<h3>Gestione dei timer in TCP</h3>
+
+<p>TCP utilizza più timer per svolgere il proprio lavoro.</p>
+
+<h4>Timer di ritrasmissione</h4>
+
+<p>Quando viene inviato un segmento, si avvia un <strong>timer di ritrasmissione</strong>. Al
+timeout, il segmento viene inviato nuovamente.<br/>
+TCP utilizza un solo timer per volta. Alla ricezione di un ACK, viene avviato il timer
+relativo al successivo segmento non confermato.</p>
+
+<p>Stabilire la durata del timer è più complesso qui che nello strato
+data link: nel canale fisico non c'è congestione e il tempo di ritorno dei frame
+è calcolabile con elevata precisione.</p>
+
+<p>Se il timeout è troppo breve, ci saranno ritrasmissioni non necessarie,
+se è troppo alto aumenteranno i ritardi di trasmissione quando viene perso un pacchetto.<br/>
+Inoltre, i tempi di arrivo degli acknowledgement possono cambiare rapidamente per via delle
+congestioni.</p>
+
+<p>La soluzione è usare un algoritmo dinamico che regola costantemente il timeout
+in base a continue misurazioni delle prestazioni della rete.</p>
+
+<h5>Calcolo del timeout</h5>
+
+<p>Per ogni connessione, TCP mantiene un valore <strong>RTT</strong> (<em>Round Trip Time</em>), un
+valore <em>perequato</em> che rappresenta la stima del tempo di round-trip per
+tale destinazione.</p>
+
+<p>Se l'acknowledgement non fa in tempo a ritornare prima del timeout, il valore del timeout viene raddoppiato.<br/>
+Se invece l'acknowledgement ritorna indietro prima del timeout (in un tempo <strong>M</strong>),
+<strong>RTT</strong> sarà aggiornato nel modo seguente:</p>
+
+<pre>RTT = &alpha;RTT + (1 - &alpha;)M</pre>
+
+
+<p>dove &alpha; è un fattore di perequazione che determina il peso dato al vecchio valore (di solito ⅞).</p>
+
+<p>Definiamo un'altra variabile perequata, la deviazione <strong>D</strong>, che indica lo
+scarto tra valore previsto e osservato:</p>
+
+<pre>D = &alpha;D + (1 - &alpha;)|RTT - M|</pre>
+
+
+<p>A questo punto il timeout finale è calcolato nel modo seguente:</p>
+
+<pre>Timeout = RTT + 4D</pre>
+
+
+<p>il fattore 4 è stato ricavato da dati statistici sulle trasmissioni.</p>
+
+<h3>Timer di persistenza</h3>
+
+<p>Il <strong>timer di persistenza</strong> serve ad evitare situazioni di stallo (<strong>deadlock</strong>).</p>
+
+<p>Immaginiamo che un ricevente annunci una <em>Window size</em> pari a <code>0</code>, e che il successivo
+aggiornamento della dimensione della finestra vada perduto. Il mittente non potrà
+sapere dell'aggiornamento, e non invierà nulla.</p>
+
+<p>Per risolvere questo problema, periodicamente viene spedito un segmento vuoto
+detto <strong>sonda</strong>, a cui il ricevente risponde con i dati sulla finestra di ricezione,
+permettendo il proseguimento della trasmissione.</p>
+
+<h3>Timer keepalive</h3>
+
+<p>Il <strong>timer keepalive</strong> è utilizzato per verificare la presenza della controparte
+in una connessione inattiva per lungo tempo. Se la verifica non ottiene risposta,
+la connessione viene terminata.</p>
+
+<h3>Timer di disconnessione</h3>
+
+<p>Il <strong>timer di disconnessione</strong> è il tempo, pari al doppio del tempo di vita di
+un pacchetto, che TCP attende prima di terminare la connessione</p>
+
+<h2>Socket di Berkeley</h2>
+
+<p>Le primitive socket sono ampiamente utilizzate per la programmazione Internet.</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Primitiva </th>
+<th> Scopo </th>
+<th> Codice client/server </th>
+<th> Note </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <code>SOCKET</code> </td>
+<td> Crea un nuovo endpoint di comunicazione </td>
+<td> Entrambi </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>BIND</code> </td>
+<td> Associa un indirizzo locale a una socket </td>
+<td> Server </td>
+<td> Se non specificato, viene selezionato automaticamente un indirizzo (es. client) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>LISTEN</code> </td>
+<td> Annuncia la capacità di accettare connessioni, specificando la lunghezza della coda </td>
+<td> Server </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>ACCEPT</code> </td>
+<td> Blocca il chiamante fino all'arrivo di un tentativo di connessione </td>
+<td> Server </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>CONNECT</code> </td>
+<td> Tenta di stabilire una connessione </td>
+<td> Client </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>SEND</code> </td>
+<td> Invia dati </td>
+<td> Entrambi </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>RECEIVE</code> </td>
+<td> Riceve dati </td>
+<td> Entrambi </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <code>CLOSE</code> </td>
+<td> Rilascia la connessione </td>
+<td> Entrambi </td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
+
+<h3>Procedura per client e server</h3>
+
+<p>Un server esegue in ordine:</p>
+
+<ol>
+<li><code>SOCKET</code>, per creare l'endpoint</li>
+<li><code>BIND</code>, per collegarlo ad un indirizzo specifico</li>
+<li><code>LISTEN</code>, per rimanere in ascolto in attesa di connessioni</li>
+<li><code>ACCEPT</code>, per collegare la socket alla prima connessione (riuscita) in arrivo</li>
+</ol>
+
+
+<p>Un client esegue in ordine:</p>
+
+<ol>
+<li><code>SOCKET</code>, per creare l'endpoint</li>
+<li><code>CONNECT</code>, per tentare la connessione con il server</li>
+</ol>
+
+
+<p>Il client non ha bisogno di un indirizzo specifico, quindi non viene usata <code>BIND</code>. Il sistema operativo assegnerà un indirizzo automaticamente.</p>
+
+<p>Dopodiché entrambi usano <code>SEND</code> e <code>RECEIVE</code> per scambiare dati. Ognuno poi
+chiude unilateralmente la sua &ldquo;metà&rdquo; della connessione con <code>CLOSE</code>.</p>
+
+<h2>Fairness tra connessioni TCP</h2>
+
+<p>Se <code>N</code> sessioni TCP condividono un canale a banda limitata (<strong>bottleneck link</strong>),
+ognuna di esse dovrebbe ottenere <code>1/N</code> della capacità del collegamento.</p>
+
+<p>Il metodo <strong>AIMD</strong> (<em>Additive increase/multiplicative decrease</em>) usato per il controllo
+della congestione assicura che, dopo un certo numero di iterazioni, questo risultato
+sarà approssimativamente raggiunto.</p>
+
+<p>L'algoritmo TCP Reno, il più utilizzato in Internet, garantisce una buona fairness.</p>
+
+<h3>Dimostrazione grafica</h3>
+
+<p>Prendiamo il caso di due connessioni TCP su un canale stretto.</p>
+
+<p>Il grafico sottostante mostra l'andamento della finestra di congestione complessiva.<br/>
+La linea tratteggiata indica un uso equo del canale, la linea continua indica il
+pieno utilizzo del canale.<br/>
+L'intersezione tra queste due linee è il punto ideale di fairness (massima utilizzazione
+e massima equità).</p>
+
+<p><img src="06_fairness.gif" alt="Fairness" /></p>
+
+<p>L'incremento della finestra di congestione è indicato dalle linee di 45°,
+che indicano che inizialmente entrambe le finestre crescono linearmente.</p>
+
+<p>Al primo segmento perso la finestra si dimezzerà, come indicato dalle linee
+che tornano verso l'origine.</p>
+
+<p>Dopo un certo numero di iterazioni, entrambe le finestre convergeranno al punto
+di <strong>fairness</strong>, ovvero l'intersezione delle due linee principali.</p>
+</body>
+</html>

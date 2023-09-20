@@ -1,0 +1,753 @@
+<!doctype html public "-//W3C//DTD HTML 4.0 Transitional //EN">
+<html>
+<head>
+  <meta name="GENERATOR" content="mkd2html 2.1.8a DEBUG DL=DISCOUNT">
+  <meta http-equiv="Content-Type"
+        content="text/html; charset=utf-8">  <link rel="stylesheet"
+        type="text/css"
+        href="style.css" />
+</head>
+<body>
+<p>Appunti Reti - &copy; 2017 Mario Cianciolo &lt;mr.udda@gmail.com&gt;</p>
+
+<h1>Livello applicazione</h1>
+
+<p>Il livello Applicazione contiene i protocolli per le comunicazioni Internet
+da processo a processo, con modelli peer-to-peer o client-server.</p>
+
+<p>L'unico livello superiore a questo è l'interfaccia utente.</p>
+
+<h2>Comunicazione tra processi</h2>
+
+<p>Le applicazioni richedono un canale bidirezionale per scambiare dati. Questo
+canale è, come sappiamo, fornito dal livello di trasporto (in UNIX tramite i
+<strong>Socket</strong>).</p>
+
+<p>I processi dello strato applicazione scambiano dati attraverso uno o più
+<strong>protocolli</strong>, in base alla loro natura e al loro scopo.</p>
+
+<h4>Sistemi distribuiti</h4>
+
+<p>In un sistema distribuito due processi remoti possono procedere in parallelo
+solo se riescono a sincronizzarsi. Lo scambio dei messaggi consente la sincronizzazione.</p>
+
+<h4>Modello Client-Server</h4>
+
+<p>In un modello di comunicazione client-server, esistono due tipi di applicazione:</p>
+
+<ul>
+<li><strong>Applicazione server-side</strong>, che fornisce i servizi e condivide risorse</li>
+<li><strong>Applicazione client-side</strong>, normalmente più semplice, utilizza servizi e risorse del server</li>
+</ul>
+
+
+<h3>Indirizzamento nella comunicazione tra processi</h3>
+
+<p>Due processi comunicano collegando i rispettivi livelli di trasporto. In UNIX,
+vengono usati i <strong>Socket</strong>.</p>
+
+<h4>Numeri di porta</h4>
+
+<p>I possibili numeri di porta vanno da 0 a 65535 (valore 16 bit).<br/>
+Le porte sono suddivise in tre gruppi:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Gruppo </th>
+<th> Intervallo </th>
+<th> Note </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>Well known ports</strong> o <strong>System ports</strong> </td>
+<td> 0-1023 </td>
+<td> riservate a processi di sistema, per usarle servono privilegi di superuser </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Registered ports</strong> </td>
+<td> 1024-49151 </td>
+<td> assegnate per qualche uso da IANA, per usarle non servono privilegi di superuser </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Dynamic/Private ports</strong> </td>
+<td> 49152-65535 </td>
+<td> contiene porte dinamiche (utilizzate per una singola connessione e poi liberate) o private, non possono essere registrate da IANA </td>
+</tr>
+</tbody>
+</table>
+
+
+<p>Molti protocolli largamente usati hanno dei numeri di porta fissi nell'intervallo
+delle well known ports.</p>
+
+<h3>Requisiti delle applicazioni</h3>
+
+<p>In base alla natura dell'applicazione, i requisiti sono diversi:</p>
+
+<ul>
+<li><strong>Affidabilità</strong>: alcune applicazioni (streaming, videochiamate) possono permettersi di perdere qualche pacchetto, altre invece no (e-mail, trasferimento file)</li>
+<li><strong>Larghezza di banda</strong>: alcune applicazioni scambiano pochi dati (chat), mentre altre hanno bisogno di più larghezza di banda (trasferimento file, e-mail con allegati)</li>
+<li><strong>Sensibilità al tempo</strong>: alcune applicazioni hanno bisogno di bassi ritardi (video in tempo reale, giochi interattivi), altre invece non hanno particolari esigenze in termini di tempo (e-mail, trasferimento file)</li>
+</ul>
+
+
+<p>I requisiti condizionano la scelta del protocollo di trasporto, ad esempio:</p>
+
+<ul>
+<li>dove è importante l'affidabilità, l'applicazione sceglierà di usare <strong>TCP</strong> al livello di trasporto</li>
+<li>dove è importante la latenza, l'applicazione potrebbe preferire <strong>UDP</strong> per via della maggiore velocità di elaborazione</li>
+</ul>
+
+
+<h2>Il protocollo HTTP</h2>
+
+<p>HTTP è un tipico protocollo client-server.
+Il client invia una <strong>HTTP Request</strong> e il server restituisce una <strong>HTTP Response</strong>.</p>
+
+<p>HTTP è generalmente in ascolto sulla <strong>porta 80</strong>, e utilizza TCP per assicurare la
+correttezza della trasmissione.</p>
+
+<p>HTTP è un protocollo testuale, che utilizza solo caratteri ASCII (tranne che per il
+corpo che può contenere dati binari). I client normalmente sono i <strong>Web browser</strong>,
+che visualizzano le <strong>pagine web</strong> (spesso HTML) presenti sui server.</p>
+
+<p>Se la pagina contiene riferimenti ad altri oggetti (immagini, script, etc) questi
+vengono richiesti sempre tramite HTTP, in parallelo o sequenzialmente.</p>
+
+<h4>Versioni di HTTP</h4>
+
+<p>HTTP 1.0 chiude la connessione dopo il trasferimento di un singolo oggetto.</p>
+
+<p>HTTP 1.1 utilizza connessioni permanenti (<strong>keep-alive</strong>) che migliorano le prestazioni perché non serve un handshake a tre vie per ogni oggetto.</p>
+
+<p>Esiste anche lo standard HTTP 2.0, compatibile con i precedenti, che migliora le prestazioni generali.</p>
+
+<h3>HTTP Request</h3>
+
+<p>Il formato di una richiesta HTTP è il seguente.</p>
+
+<p>Alla fine delle opzioni deve esserci una linea vuota, anche
+se non ci sono opzioni o non c'è corpo.<br/>
+I fine linea devono contenere il doppio byte <code>CR LF</code> (<code>\r\n</code>).</p>
+
+<pre>
+[METODO] [URL] [VERSIONE]
+[HEADER_1]: [VALORE_1]
+[HEADER_2]: [VALORE_2]
+...
+[HEADER_N]: [VALORE_N]
+
+[CORPO REQUEST]
+</pre>
+
+
+<ul>
+<li><strong>METODO</strong>: i metodi più utilizzati sono <strong>GET</strong> e <strong>POST</strong>, ma ne esistono altri</li>
+<li><strong>URL</strong>: <em>Uniform Resource Locator</em>, stringa che identifica in modo univoco una data risorsa</li>
+<li><strong>VERSIONE</strong>: <code>HTTP/1.0</code> o <code>HTTP/1.1</code></li>
+<li><strong>HEADER</strong>: un'intestazione valida per le request (come <code>Host</code> o <code>User-Agent</code>), seguita dal suo valore</li>
+</ul>
+
+
+<h4>Metodi HTTP</h4>
+
+<p>I possibili metodi da utilizzare nelle request sono i seguenti:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Metodo </th>
+<th> Scopo </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>GET</strong> </td>
+<td> Ottenere una pagina web </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>HEAD</strong> </td>
+<td> Ottenere gli header di una pagina web </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>PUT</strong> </td>
+<td> Memorizzare una pagina web </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>POST</strong> </td>
+<td> Inviare dati al server (come il contenuto di un form) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>DELETE</strong> </td>
+<td> Eliminare una pagina web </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>TRACE</strong> </td>
+<td> Ottenere indietro la request ricevuta dal server </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>CONNECT</strong> </td>
+<td> Riservato per usi futuri </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>OPTIONS</strong> </td>
+<td> Legge il valore di alcune opzioni </td>
+</tr>
+</tbody>
+</table>
+
+
+<h3>HTTP Response</h3>
+
+<p>Il formato di una richiesta HTTP è il seguente.</p>
+
+<p>Alla fine delle opzioni deve esserci una linea vuota, anche
+se non ci sono opzioni o non c'è corpo.<br/>
+I fine linea devono contenere il doppio byte <code>CR LF</code> (<code>\r\n</code>).</p>
+
+<pre>
+[VERSIONE] [STATO] [FRASE]
+[HEADER_1]: [VALORE_1]
+[HEADER_2]: [VALORE_2]
+...
+[HEADER_N]: [VALORE_N]
+
+[CORPO RESPONSE]
+</pre>
+
+
+<ul>
+<li><strong>VERSIONE</strong>: <code>HTTP/1.0</code> o <code>HTTP/1.1</code></li>
+<li><strong>STATO</strong>: un codice di stato HTTP (numerico)</li>
+<li><strong>FRASE</strong>: un breve testo che descrive il codice di stato</li>
+<li><strong>HEADER</strong>: un'intestazione valida per le response (come <code>Content-Length</code>), seguita dal suo valore</li>
+</ul>
+
+
+<h4>Codici di stato</h4>
+
+<p>I possibili codici di stato sono di tipo diverso in base alla prima cifra:</p>
+
+<ul>
+<li><strong>1</strong>: Informazioni (<code>100 Continue</code>)</li>
+<li><strong>2</strong>: Successo (<code>200 OK</code>, <code>204 No Content</code>)</li>
+<li><strong>3</strong>: Reindirizzamento (<code>305 Use Proxy</code>)</li>
+<li><strong>4</strong>: Errore client (<code>400 Bad Request</code>, <code>403 Forbidden</code>, <code>404 Not Found</code>)</li>
+<li><strong>5</strong>: Errore server (<code>500 Internal Server Error</code>, <code>505 HTTP Version not supported</code>)</li>
+</ul>
+
+
+<h3>HTML dinamico</h3>
+
+<p>Molti web server creano la pagina web al momento della richiesta, utilizzando appositi
+sistemi (PHP, ASP, &hellip;).<br/>
+In questo modo, pur essendo la response di per sé <em>statica</em>,
+la pagina web è generata ad ogni request ed è quindi <em>dinamica</em>.</p>
+
+<h2>Il protocollo FTP</h2>
+
+<p>FTP è un protocollo client-server che usa TCP per lo scambio affidabile di file
+tra host. Generalmente il server FTP è in ascolto sulla <strong>porta 21</strong>.</p>
+
+<h3>I due canali FTP</h3>
+
+<p>FTP utilizza due connessioni separate per gestire comandi e dati.</p>
+
+<p>Un server FTP generalmente rimane in ascolto sulla porta 21, a cui si connette il client.<br/>
+La connessione comporta l'inizializzazione del <strong>canale comandi</strong>, attraverso il quale client
+e server si scambiano comandi e risposte.</p>
+
+<p>Lo scambio effettivo di dati (come per esempio un file) richiede l'apertura del <strong>canale dati</strong>, che può essere di due tipi:</p>
+
+<ul>
+<li><strong>attivo</strong>: il client apre una porta solitamente casuale, tramite il canale comandi rende noto il numero di tale porta al server.
+Il server connette la propria <strong>porta 20</strong> alla porta del client</li>
+<li><strong>passivo</strong>: il server apre una porta solitamente casuale (superiore alla 1023), tramite il canale comandi
+rende noto il numero di tale porta al client e attende che si connetta</li>
+</ul>
+
+
+<p>Sia il canale comandi, sia il canale dati sono delle connessioni TCP.</p>
+
+<p>FTP crea un nuovo canale dati per ogni file trasferito, mentre il canale comandi
+rimane aperto per l'intera durata della sessione utente.<br/>
+In altre parole il canale comandi è <strong>persistente</strong> mentre il canale dati è <strong>non persistente</strong>.</p>
+
+<h3>Funzioni di FTP</h3>
+
+<p>Un server FTP offre funzioni per interagire con il suo filesystem, tra cui:</p>
+
+<ul>
+<li>download/upload di file</li>
+<li>resume di trasferimenti interrotti</li>
+<li>rimozione e rinomina di file</li>
+<li>creazione di directory</li>
+<li>navigazione tra directory</li>
+</ul>
+
+
+<h4>Autenticazione</h4>
+
+<p>FTP fornisce inoltre un sistema di autenticazione in chiaro (non criptato).<br/>
+Il client che si connette potrebbe dover fornire delle credenziali a seconda
+delle quali gli saranno assegnati determinati privilegi per poter operare sul
+filesystem.</p>
+
+<p>L'autenticazione cosiddetta <strong>anonima</strong> prevede che il client non specifichi
+nessuna password di accesso e che lo stesso abbia privilegi che sono
+generalmente di sola lettura.</p>
+
+<h3>Differenze con HTTP</h3>
+
+<p>Le principali differenze tra FTP e HTTP sono le seguenti:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Metrica </th>
+<th> FTP </th>
+<th> HTTP </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>Connessioni TCP</strong> </td>
+<td> Due connessioni (controllo e dati) </td>
+<td> Headers e dati nella stessa connessione </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Dati trasferiti</strong> </td>
+<td> File (salvati in locale) </td>
+<td> Pagine web (soltanto visualizzate) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Dati aggiuntivi</strong> </td>
+<td> Solo controllo (poco overhead) </td>
+<td> Controllo e metadati (molto overhead per file piccoli) </td>
+</tr>
+</tbody>
+</table>
+
+
+<h2>Protocolli di posta</h2>
+
+<p>La posta elettronica viene implementata in Internet attraverso la cooperazione dei seguenti sottosistemi:</p>
+
+<ul>
+<li><strong>Mail User Agent</strong> (<em>MUA</em>): client (applicazione di posta), usa SMTP in invio e POP/IMAP in ricezione</li>
+<li><strong>Mail Transport Agent</strong> (<em>MTA</em>): server (interfaccia con la rete), usa SMTP</li>
+<li><strong>Mail Delivery Agent</strong> (<em>MDA</em>): interfaccia rete - client per leggere la posta, usa POP e/o IMAP</li>
+</ul>
+
+
+<p>Spesso MTA e MDA sono la stessa macchina.<br/>
+Le diverse entità utilizzano diversi protocolli:</p>
+
+<p><img src="07_mda_mta_mua.png" alt="Entità di posta elettronica" /></p>
+
+<h3>Il protocollo SMTP</h3>
+
+<p><strong>SMTP</strong> (<em>Simple Mail Transfer Protocol</em>) è il protocollo usato dai MTA che permette
+di trasferire la posta da un server ad un altro con una connessione point to point.<br/>
+La posta è consegnata direttamente al server di posta del destinatario.</p>
+
+<p>Il protocollo usa TCP ed è generalmente è in ascolto sulla <strong>porta 25</strong>.</p>
+
+<h4>Funzionamento di SMTP</h4>
+
+<p>Normalmente l'invio del messaggio avviene in due passi:</p>
+
+<ul>
+<li>Il programma di posta elettronica usato dall'utente invia il messaggio al proprio server usando il protocollo SMTP.</li>
+<li>Il server trasferisce il messaggio al server del destinatario utilizzando lo stesso protocollo.</li>
+</ul>
+
+
+<h4>Comandi SMTP</h4>
+
+<p>Il client invia comandi testuali al server, terminati dalla coppia di byte <code>CR LF</code> (<code>\r\n</code>).<br/>
+La risposta del server consiste in un codice di stato e un messaggio descrittivo.</p>
+
+<p>Tutti i caratteri trasmessi devono essere codificati in ASCII a 7 bit, quindi per
+inviare byte non ASCII bisogna ricorrere a:</p>
+
+<ul>
+<li><strong>base64</strong> per dati binari (es. file in allegato)</li>
+<li><strong>quoted-printable</strong> per i caratteri speciali (es. lettere accentate)</li>
+</ul>
+
+
+<p>Di seguito i principali comandi SMTP:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Comando SMTP </th>
+<th> Significato </th>
+<th> Note </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>HELO</strong> </td>
+<td> Inviato da un client per l'autoidentificazione, solitamente con un nome di dominio </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>MAIL FROM:</strong> </td>
+<td> Identifica il mittente del messaggio (usare i due punti) </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>RCPT TO:</strong> </td>
+<td> Identifica i destinatari del messaggio (usare i due punti) </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>TURN</strong> </td>
+<td> Consente al client e al server di invertire i ruoli e inviare la posta nella direzione opposta senza dovere stabilire una nuova connessione </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>PIPELINING</strong> </td>
+<td> Consente di inviare un flusso di comandi senza aspettare una risposta dopo ogni comando </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>DATA</strong> </td>
+<td> Inviato da un client per avviare il trasferimento del contenuto di un messaggio </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>RSET</strong> </td>
+<td> Annulla l'intera transazione del messaggio e ripristina il buffer </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>VRFY</strong> </td>
+<td> Verifica che una cassetta postale sia disponibile per il recapito di messaggi </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>HELP</strong> </td>
+<td> Restituisce l'elenco dei comandi supportati dal servizio SMTP </td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>QUIT</strong> </td>
+<td> Termina la sessione </td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
+
+<h4>Esempio di sessione SMTP</h4>
+
+<p>Una tipica sessione SMTP si svolge in questo modo:</p>
+
+<ol>
+<li>connessione al server SMTP (porta 25)</li>
+<li>comando <code>HELO</code>, a cui il server risponderà</li>
+<li>comandi <code>MAIL FROM:</code> e <code>RCPT TO:</code></li>
+<li>comando <code>DATA</code></li>
+<li>comando <code>QUIT</code></li>
+</ol>
+
+
+<pre>
+220 mail.prima-rete-esempio.com ESMTP server (Post.Office v3.1.2 release (PO203-101c)...) ready Wed, 15 Apr 1998 14:26:31 +0200
+>  HELO mariorossi
+250 mail.prima-rete-esempio.com
+>  MAIL FROM:&lt;mrossi@prima-rete-esempio.com&gt;
+250 Sender &lt;mrossi@prima-rete-esempio.com&gt; Ok
+>  RCPT TO:&lt;fverdi@seconda-rete-esempio.com&gt;
+250 Recipient &lt;fverdi@seconda-rete-esempio.com&gt; Ok
+>  DATA
+354 Ok Send data ending with &lt;CRLF&gt;.&lt;CRLF&gt;
+>  From: mrossi@prima-rete-esempio.com (Mario Rossi)
+>  To: fverdi@seconda-rete-esempio.com
+>  Date: Wed, 15 Apr 1998 14:24:06 +0200
+>  Subject: Richiesta informazioni sulle vs. iniziative
+>
+>  Le sarei grato se mi facesse pervenire il programma delle
+>  gite per l'estate 98, possibilmente completo dei relativi costi.
+>  Ringraziando porgo distinti saluti
+>  Mario Rossi
+>  .
+250 Message received: 19980415162853.AAA24735@mail.prima-rete-esempio.com
+>  QUIT
+221 mail.prima-rete-esempio.com ESMTP server closing connection
+</pre>
+
+
+<h4>Header di posta</h4>
+
+<p>Il messaggio del client (la parte dopo <code>DATA</code>), oltre che il testo vero e proprio,
+deve contenere alcune informazioni sottoforma di <em>metadati</em>, i cosiddetti <strong>Header di posta</strong>.</p>
+
+<p>Il formato è lo stesso di HTTP: una sequenza di righe <code>&lt;nome&gt;: &lt;valore&gt;</code> al cui termine
+va una riga vuota.</p>
+
+<p>I principali sono:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Header di posta </th>
+<th> Significato </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>To:</strong> </td>
+<td> Destinatari principali </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Cc:</strong> </td>
+<td> Destinatari secondari (Carbon Copy) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Cc:</strong> </td>
+<td> Destinatari secondari non in lista (Blind Carbon Copy) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>From:</strong> </td>
+<td> Mittente </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Sender:</strong> </td>
+<td> Indirizzo e-mail del mittente </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Reply-To:</strong> </td>
+<td> Indirizzo e-mail a cui rispondere </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Subject:</strong> </td>
+<td> Oggetto della mail </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Received:</strong> </td>
+<td> Linea aggiunta da ogni MTA lungo il percorso </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>Message-Id:</strong> </td>
+<td> ID per riferirsi in seguito a questo messaggio </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>In-Reply-To:</strong> </td>
+<td> ID del messaggio di cui questo è risposta </td>
+</tr>
+</tbody>
+</table>
+
+
+<h3>POP e IMAP</h3>
+
+<p><strong>POP</strong> (<em>Post Office Protocol</em>) e il suo successore <strong>IMAP</strong> (<em>Internet Message Access Protocol</em>) sono
+i due protocolli che un MUA utilizza per recuperare i messaggi dal server (MDA).</p>
+
+<p>La principale differenza tra i due protocolli è che POP consegna i messaggi,
+dopodiché l'utente può lavorare offline. Se da un lato questo ha il vantaggio
+di non richiedere una connessione per poter leggere la posta (ma solo per scaricarla),
+dall'altro crea problemi di sincronizzazione quando si usano più dispositivi per
+leggere la posta. Inoltre, per comportamento predefinito, POP cancella dal server
+i messaggi letti, quindi il backup è a carico dell'utente.</p>
+
+<p>IMAP, invece, mantiene le e-mail sul server, e quello che l'utente riceve
+è una copia in cache. È richiesta una connessione continuata per poter usufruire
+del servizio, ma la sincronizzazione tra più dispositivi è implicita. Ha tardato
+ad affermarsi in quanto l'implementazione è più complessa, e sottopone il server
+ad un carico di lavoro maggiore.</p>
+
+<p>Un altro vantaggi di IMAP è il controllo dell'utente sul download dei messaggi,
+che possono essere scaricati anche solo parzialmente, risparmiando banda.<br/>
+Questo comportamento è usato per scaricare solo le intestazioni di tutti i messaggi,
+per avere una visione d'insieme, per poi scaricare per intero i messaggi da leggere.</p>
+
+<h2>Il protocollo DNS</h2>
+
+<p><strong>Domain Name System</strong> (<em>DNS</em>) è un sistema utilizzato per la risoluzione di nomi
+host in indirizzi IP e viceversa.<br/>
+Il servizio è realizzato tramite un <strong>database distribuito</strong>, costituito dai <strong>server DNS</strong>.</p>
+
+<p>L'operazione di ottenimento di un indirizzo IP dal nome è detta <strong>risoluzione DNS</strong>,
+l'operazione opposta è detta <strong>risoluzione inversa</strong>.</p>
+
+<h3>Domini</h3>
+
+<p>Il DNS ha una struttura gerarchica ad albero rovesciato ed è diviso in <strong>domini</strong> (com, org, it, ecc.).<br/>
+Ad ogni dominio (nodo dell'albero) corrisponde un <strong>nameserver</strong>, che conserva un database con
+le informazioni di alcuni domini, e si rivolge ai nodi successivi
+quando deve trovare informazioni che appartengono ad altri domini.</p>
+
+<p>I DNS implementano uno spazio gerarchico dei nomi, per permettere che parti di uno
+spazio dei nomi, conosciute come <strong>zone</strong>, possano essere delegate da un name server
+ad un altro name server che si trova più in basso nella gerarchia.</p>
+
+<h4>Nomi di dominio</h4>
+
+<p>Un nome di dominio è costituito da una serie di stringhe separate da punti.
+La parte più importante è la prima partendo da destra.
+Questa è detta <strong>dominio di primo livello</strong> (o <strong>TLD</strong>, <em>Top Level Domain</em>).</p>
+
+<p>Un dominio di secondo livello consiste in due parti, per esempio wikipedia.org, e così via.
+Ogni ulteriore elemento specifica un'ulteriore suddivisione.<br/>
+Quando un dominio di secondo livello viene registrato all'assegnatario, questo è
+autorizzato a usare i nomi di dominio relativi ai successivi livelli come it.wikipedia.org
+(dominio di terzo livello) e altri come some.other.stuff.wikipedia.org (dominio di
+quinto livello) e così via.</p>
+
+<p>Ogni parte del nome non può superare i 63 caratteri e il nome complessivo non può superare i 255 caratteri.</p>
+
+<h4>Root domain</h4>
+
+<p>Ogni nome di dominio termina con un punto (es. <code>www.example.com.</code>).
+Negli URL comunemente usati, l'ultimo punto viene omesso.<br/>
+La stringa vuota che segue il punto finale è chiamata <em>dominio radice</em> (<strong>DNS root zone</strong>).</p>
+
+<p>I server responsabili del dominio radice sono i cosiddetti <strong>root nameservers</strong>.
+Essi possiedono l'elenco dei server autoritativi di tutti i domini di primo livello (<strong>TLD</strong>)
+riconosciuti e lo forniscono in risposta a ciascuna richiesta.<br/>
+I root nameserver sono <strong>13</strong> in tutto il mondo, di cui 10 negli Stati Uniti, due in Europa (Inghilterra e Svezia) ed uno in Giappone.</p>
+
+<h3>Server DNS</h3>
+
+<h4>Tipi di server</h4>
+
+<p>I server sono classificabili anche in base al tipo:</p>
+
+<ul>
+<li><strong>Local name server</strong>: ciascun ISP ha un server dei nomi locale, vicino all'host. Riceve tutte le query DNS, conosce l'indirizzo di un root name server</li>
+<li><strong>Root name server</strong>: server responsabili del <em>root domain</em></li>
+<li><strong>Name server assoluto</strong>: server dei nomi che conosce la corrispondenza tra nome e indirizzo IP</li>
+<li><strong>Name server intermedio</strong>: server dei nomi che conosce il NS assoluto (o quello intermedio di livello più alto)</li>
+</ul>
+
+
+<h4>Funzioni dei server</h4>
+
+<p>Un server DNS può essere configurato per assolvere ad una o più delle seguenti funzioni:</p>
+
+<ul>
+<li><strong>server autorevole primario</strong> per una o più zone, ovvero il server che gestisce i dati di una zona, e
+che è delegato a gestirla tramite <strong>record NS</strong> inseriti nella zona superiore.</li>
+<li><strong>server autorevole secondario</strong>: server autorevole che copia i dati di zona da un primario.
+Normalmente sono presenti più server autorevoli secondari per una zona, ma un solo primario.</li>
+<li><strong>server ricorsivo</strong>: si occupa di risolvere le query che riceve interrogando i server originali,
+e mantenendo una cache delle risposte ricevute</li>
+</ul>
+
+
+<h3>Formato di una query DNS</h3>
+
+<p>Le query DNS sono trasmesse all'interno di segmenti UDP.</p>
+
+<p>Un messaggio è formato da un'intestazione fissa di 12 byte, seguita da eventuali
+domande o risposte. Il formato è il seguente:</p>
+
+<p><img src="07_dns_message.jpg" alt="Formato di un messaggio DNS" /></p>
+
+<h3>Risoluzione DNS</h3>
+
+<p>La risoluzione può avvenire in tre modi:</p>
+
+<ul>
+<li><strong>risoluzione ricorsiva</strong>: ogni server DNS chiede al successivo</li>
+<li><strong>risoluzione iterativa</strong>: ogni server DNS restituisce l'indirizzo del successivo, ed è sempre il client che lo contatta</li>
+<li><strong>risoluzione mista</strong>: per alleggerire il carico sui root name server, le richieste su di esso sono iterative, le richieste dai TLD name server in poi sono ricorsive</li>
+</ul>
+
+
+<p>Il procedimento è il seguente:</p>
+
+<ol>
+<li>il client effettua la richiesta presso il local name server</li>
+<li>questo potrebbe conoscere il risultato dell'interrogazione (perché è un indirizzo locale,
+oppure perché ha in <em>cache</em> il risultato di una vecchia query)</li>
+<li>altrimenti, effettua la risoluzione (in uno dei tre modi elencati)</li>
+<li>ognuno dei server interrogati durante la risoluzione potrebbe avere la risposta in cache, e quindi interrompere la ricerca</li>
+</ol>
+
+
+<p>Di seguito un esempio di risoluzione ricorsiva e mista:</p>
+
+<p><img src="07_dns_resolve.png" alt="Risoluzione DNS" /></p>
+
+<h3>Record DNS</h3>
+
+<p>Ad un nome DNS possono corrispondere diversi tipi di informazioni.
+Per questo motivo, esistono diversi tipi di <strong>record DNS</strong>.</p>
+
+<p>Ogni voce del database DNS deve essere caratterizzata da un <strong>tipo</strong>. I principali tipi sono:</p>
+
+<table>
+<thead>
+<tr>
+<th style="text-align:left;"> Tipo DNS </th>
+<th> Descrizione </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;"> <strong>A</strong> </td>
+<td> Corrispondenza tra un nome e un indirizzo IPv4 </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>AAAA</strong> </td>
+<td> Corrispondenza tra un nome e un indirizzo IPv6 </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>MX</strong> </td>
+<td> (Mail eXchange) indica a quali server debba essere inviata la posta elettronica per un certo dominio </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>CNAME</strong> </td>
+<td> Alias, ovvero fare in modo che lo stesso host sia noto con più nomi </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>PTR</strong> </td>
+<td> Risoluzione inversa </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>SRV</strong> </td>
+<td> Server per un dato servizio (generalizzazione dei record MX) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>TXT</strong> </td>
+<td> Campi di testo arbitrari </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>NS</strong> </td>
+<td> Indica quali siano i server DNS autorevoli per un certo dominio (ovvero per delegarne la gestione) </td>
+</tr>
+<tr>
+<td style="text-align:left;"> <strong>SOA</strong> </td>
+<td> (Start of Authority) gestione delle zone DNS </td>
+</tr>
+</tbody>
+</table>
+
+
+<p>Ad uno stesso nome di dominio, possono essere associati contemporaneamente record di tipo diverso, o più record dello stesso tipo.
+Questo generalmente viene fatto per suddividere il carico di un server molto frequentato su più computer che offrono lo stesso servizio.</p>
+
+<h4>Time to live</h4>
+
+<p>I record associati ad un nome di dominio possono cambiare nel tempo, permettendo ad esempio
+di assegnare un nuovo indirizzo IP ad un server, facendo in modo che questo continui
+a rispondere al nome già noto agli utenti.</p>
+
+<p>A ciascun record DNS è associato un parametro detto <strong>time to live</strong> (<em>TTL</em>), che indica
+per quanto tempo questo record può venire memorizzato in un sistema di cache DNS prima che venga
+considerato scaduto.</p>
+
+<p>Quando un server risponde ad una richiesta con un record preso dalla propria cache, assegna alla
+risposta il time to live residuo del record. Quindi se il record originariamente ha un TTL
+di 12 ore, e un server risponde ad una richiesta con un dato che ha ottenuto due ore prima,
+nella risposta metterà un TTL di 10 ore.</p>
+</body>
+</html>

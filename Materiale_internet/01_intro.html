@@ -1,0 +1,366 @@
+<!doctype html public "-//W3C//DTD HTML 4.0 Transitional //EN">
+<html>
+<head>
+  <meta name="GENERATOR" content="mkd2html 2.1.8a DEBUG DL=DISCOUNT">
+  <meta http-equiv="Content-Type"
+        content="text/html; charset=utf-8">  <link rel="stylesheet"
+        type="text/css"
+        href="style.css" />
+</head>
+<body>
+<p>Appunti Reti - &copy; 2017 Mario Cianciolo &lt;mr.udda@gmail.com&gt;</p>
+
+<h1>Introduzione alle reti di calcolatori</h1>
+
+<h2>Architettura di una rete</h2>
+
+<p>L'organizzazione del software di rete avviene attraverso una serie di livelli (<em>layers</em>) ciascuno dei quali:</p>
+
+<ul>
+<li>svolge compiti ben definiti</li>
+<li>fornisce determinati <strong>servizi</strong> (<em>interfaccia</em>) al livello immediatamente superiore (nascondendone l'implementazione)</li>
+<li>utilizza servizi del livello immediatamente inferiore</li>
+<li>comprende uno o più <em>protocolli</em></li>
+</ul>
+
+
+<h3>Servizi e protocolli</h3>
+
+<p>Un <strong>protocollo</strong> è una serie di regole che governano il formato e il significato dei blocchi d'informazione
+(<strong>frames</strong> o <strong>pacchetti</strong>) che vengono scambiati fra entità dello stesso livello (<em>peer entity</em>) su macchine diverse.
+Le regole e le convenzioni che governano la conversazione sono dette collettivamente <em>protocollo di livello n</em>.</p>
+
+<p>Un <strong>servizio</strong> è specificato da un insieme di <strong>primitive</strong> (o <em>operazioni</em>) disponibili ai
+livelli superiori attraverso il <strong>SAP</strong> (<em>Service Access Point</em>, vedi sotto).
+Le primitive chiedono al servizio di eseguire alcune azioni.<br/>
+Ad esempio, le primitive per un semplice servizio <em>connection oriented</em> potrebbero essere: <code>LISTEN</code>, <code>CONNECT</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>DISCONNECT</code></p>
+
+<p>Un <strong>modello</strong> definisce numero, relazioni e caratteristiche funzionali dei vari livelli.</p>
+
+<p>Un'architettura di rete è composta da un modello e dai protocolli usati in ogni livello.</p>
+
+<h3>Sistema a livelli</h3>
+
+<p>Quando due nodi (<strong>host</strong>) comunicano fra di loro, ogni livello su ciascun nodo scambia informazioni
+sia con i livelli adiacenti che, concettualmente, con il livello paritetico dell’altro nodo.</p>
+
+<p>Il trasferimento di un pacchetto da un nodo al livello paritetico di un altro nodo si effettua attraverso i seguenti passi:</p>
+
+<ol>
+<li>si inoltra il pacchetto attraverso i livelli sottostanti fino a quello fisico, attraverso il quale i dati vengono trasferiti dal primo nodo al secondo nodo</li>
+<li>il secondo nodo acquisisce il pacchetto tramite il livello fisico e lo inoltra verso i livelli superiori fino al livello paritetico con quello del primo nodo</li>
+</ol>
+
+
+<p>L'insieme dei livelli e dei relativi protocolli definisce un'architettura di rete.
+Tra reti diverse possono essere diversi anche il numero di livelli, i loro nomi, nonché il loro contenuto e le loro funzioni.
+Nella stessa rete, invece, i vari host possono avere implementazioni diverse in termini di interfacce fra i livelli, ma conformi in termini di livelli e protocolli.</p>
+
+<h4>Comunicazione tra livelli paritetici</h4>
+
+<p>Due livelli paritetici comunicano fra di loro scambiandosi pacchetti chiamati <strong>PDU</strong> (<em>Protocol Data Unit</em>).</p>
+
+<p>Ogni livello <code>n</code> aggiunge al pacchetto proveniente dal livello superiore (<code>n+1</code>), detto <strong>SDU</strong> (<em>Service Data Unit</em>)
+le informazioni di controllo del suo protocollo (<strong>PCI</strong>, <em>Protocol Control Information</em>).<br/>
+Questa operazione si chiama <strong>encapsulation</strong>.</p>
+
+<p>Queste informazioni vengono preposte alla PDU del livello n e costituiscono la <code>n-PDU</code>.
+La <code>n-PDU</code> a sua volta viene incapsulata (o <em>imbustata</em>) nella busta di livello <code>n-1</code> e così via.</p>
+
+<p><img src="http://www.euser.it/itis/modell8.gif" alt="Struttura a strati" /></p>
+
+<h3>Funzionamento del software di rete</h3>
+
+<p>La comunicazione avviene con una modalità che, per grandi linee, è uguale in tutte le architetture di rete:</p>
+
+<ol>
+<li>il livello più alto del mittente consegna il messaggio al livello inferiore</li>
+<li>il livello inferiore aggiunge il suo header al messaggio (informazioni di controllo: numero di sequenza, dimensione, priorità, &hellip;)</li>
+<li>il livello inferiore può aver bisogno di frammentare i dati, cosa che fa aggiungendo il suo header a ciascun messaggio frammentato</li>
+<li>i punti 2 e 3 si ripetono fino ad arrivare all'ultimo livello (<strong>canale fisico</strong>)</li>
+<li>attraverso il canale fisico i dati raggiungono la destinazione</li>
+<li>il messaggio fa il percorso inverso, con ogni layer che rimuove il suo header, ricompone eventuali messaggi frammentati, e passa il resto al layer superiore</li>
+<li>il messaggio arriva al livello superiore del destinatario</li>
+</ol>
+
+
+<h4>Overhead di rete</h4>
+
+<p>Un messaggio viaggia in rete con il corredo di tante intestazioni quanti
+sono i livelli dell'architettura. In pratica ciascun livello a destinazione riceve
+esattamente i dati che ha spedito lo stesso livello alla sorgente.</p>
+
+<p>I dati trasmessi dal canale fisico che non fanno parte del messaggio (header dei
+vari livelli) costituiscono l'<strong>overhead di rete</strong>.</p>
+
+<h4>Affidabilità del servizio</h4>
+
+<p>Un servizio affidabile non incorre mai nell'errore di perdere i dati,
+assicurandosi che i dati spediti siano stati consegnati al destinatario.</p>
+
+<p>Ciò richiede, generalmente, che il ricevente invii una conferma (<em>acknowledgement</em>)
+per ogni messaggio o pacchetto ricevuto.</p>
+
+<p>Alcuni servizi possono non essere affidabili (non danno la certezza della ricezione)
+ma, in tal caso, basta che di ciò si preoccupi almeno uno dei livelli superiori.</p>
+
+<h2>Modello OSI</h2>
+
+<p><strong>OSI</strong> (<em>Open System Interconnection</em>), emesso dalla ISO (<em>International Standard Organization</em>),
+è un modello di riferimento, ovvero definisce numero, e funzionalità dei livelli, ma non definisce
+i protocolli (che uniti al modello, danno luogo ad una precisa architettura di rete).</p>
+
+<h3>Servizi e protocolli</h3>
+
+<p>I servizi dei livelli OSI possono essere:</p>
+
+<ul>
+<li><strong>con conferma</strong> di ricezione</li>
+<li><strong>senza conferma</strong> di ricezione</li>
+</ul>
+
+
+<p>I protocolli dei livelli OSI possono essere:</p>
+
+<ul>
+<li><strong>connection oriented</strong> (<em>CONS</em>)
+
+<ul>
+<li>indirizzi di mittente e destinatario specificati solo alla creazione della connessione</li>
+<li>garanzia della consegna (PDU numerati per poterli ricomporre a destinazione, ritrasmissione in caso di errori)</li>
+<li><strong>controllo di flusso</strong> (sincronizzazione tra processi trasmittente e ricevente)</li>
+</ul>
+</li>
+<li><strong>connectionless</strong> (<em>CLNS</em>) o <em>datagram</em>
+
+<ul>
+<li>ogni pacchetto deve contenere gli indirizzi di mittente e destinatario</li>
+<li>i pacchetti di uno stesso messaggio possono avere ritardi diversi e possono essere ricevuti in ordine diverso</li>
+<li>il protocollo può rilevare la presenza di errori scartando le PDU errate ma non può richiedere la ritrasmissione dei pacchetti errati</li>
+</ul>
+</li>
+</ul>
+
+
+<h3>Livelli OSI</h3>
+
+<p>Il modello OSI consiste di sette livelli:</p>
+
+<table class="vcolor">
+    <tr><th>Unità di dato</th> <th>Layer</th> <th>Tipo</th> <th>Implementati da</th></tr>
+    <tr><td>Dati</td> <td>Applicazione (<b>Application</b>)</td> <td rowspan="4">Livelli superiori</td> <td rowspan="4">Sistemi finali (<b>host</b>)</td></tr>
+    <tr><td>Dati</td> <td>Presentazione (<b>Presentation</b>)</td></tr>
+    <tr><td>Dati</td> <td>Sessione (<b>Session</b>)</td></tr>
+    <tr><td>Segmenti</td> <td>Trasporto (<b>Transport</b>)</td></tr>
+    <tr><td>Pacchetti</td> <td>Rete (<b>Network</b>)</td> <td rowspan="3">Livelli inferiori</td> <td rowspan="3">Sistemi intermedi (<b>router</b> o <b>gateway</b>)</td></tr>
+    <tr><td>Frame</td> <td>Collegamento (<b>Data Link</b>)</td></tr>
+    <tr><td>Bit</td> <td>Fisico (<b>Physical</b>)</td></tr>
+</table>
+
+
+<p>Ogni livello contiene:</p>
+
+<ul>
+<li>le <strong>entità</strong>, gli elementi software ed hardware che operano in quel livello</li>
+<li>i <strong>punti di accesso al servizio</strong> (<em>SAP</em>), i punti nei quali ogni livello mette a disposizione i suoi servizi al livello direttamente superiore (nel sistema telefonico, ad esempio, un SAP è la presa telefonica)</li>
+</ul>
+
+
+<p>Una entity è caratterizzata dalla sigla del proprio strato, a livello 3 avremo per esempio delle N-entity.</p>
+
+<p><img src="http://www.euser.it/itis/modell2.gif" alt="Struttura di un livello OSI" /></p>
+
+<h4>Livello fisico</h4>
+
+<p>Il livello Fisico ha a che fare con gli aspetti meccanici, elettrici e procedurali delle interfacce di rete
+(la vera e propria trasmissione dei bit sul canale di comunicazione).</p>
+
+<p>Specifica le modalità con cui sono trasmessi i bit e le caratteristiche dei segnali utilizzati
+(forme d'onda e durata temporale dei simboli), nonché le operazioni di multiplazione.
+Tali modalità devono essere le stesse per le due parti che conversano.</p>
+
+<p>Infine è responsabile dell'attivazione e della disattivazione della connessione di rete.</p>
+
+<h4>Livello di collegamento (Data Link)</h4>
+
+<p>Il livello di Collegamento Dati si occupa della trasmissione/ricezione dei dati fra due nodi collegati
+attraverso un canale fisico.</p>
+
+<p>Organizza i dati, dividendoli in frame (da qualche centinaio a qualche migliaio di byte) e li invia
+in sequenza aspettando un messaggio di conferma (<em>acknowledgement</em>) per ogni frame.</p>
+
+<p>In questo livello vi è inoltre la gestione degli errori di trasmissione causati da perdite o
+alterazioni, e la regolazione del flusso di trasmissione per impedire che il ricevente sia sommerso dai dati.</p>
+
+<p>Nelle reti broadcast vi è il sottolivello <strong>MAC</strong> (<em>Medium Access Control</em>) deputato
+a controllare l'accesso al canale di trasmissione;</p>
+
+<h4>Livello di rete</h4>
+
+<p>Il livello di Rete gestisce l'instradamento dei messaggi (il cammino da utilizzare) attraverso la
+rete scelta dal livello di trasporto.</p>
+
+<p>L'instradamento può avvenire secondo due tecniche:</p>
+
+<ul>
+<li><strong>circuiti virtuali</strong> (i pacchetti utilizzano lo stesso percorso)</li>
+<li><strong>datagram</strong> (i pacchetti possono utilizzare percorsi diversi)</li>
+</ul>
+
+
+<p>Altre funzioni principali sono: la multiplazione di più flussi sullo stesso circuito fisico, il controllo della congestione della rete.</p>
+
+<p>Gli algoritmi di instradamento possono essere <em>non adattabili</em> (percorso definito in anticipo) o <em>adattabili</em> (percorso deciso in base a misure o stime del traffico corrente nella rete).</p>
+
+<h4>Livello di trasporto</h4>
+
+<p>Il livello di Trasporto ha lo scopo di fornire un servizio di trasporto efficiente, affidabile ed
+economico, indipendentemente dalla rete utilizzata.</p>
+
+<p>È il livello utente più basso, ovvero il primo livello del modello di rete orientato all'utente.</p>
+
+<p>Le principali funzioni sono:</p>
+
+<ul>
+<li>definizione della qualità del servizio (considerando i ritardi di attivazione e transito e le prestazioni)</li>
+<li>rivelazione e controllo degli errori</li>
+<li>segmentazione e assemblaggio dei dati</li>
+<li>scelta della rete di trasporto</li>
+</ul>
+
+
+<h4>Livello di sessione</h4>
+
+<p>Il livello di Sessione è responsabile dell'organizzazione del dialogo.</p>
+
+<p>Fornisce alcune funzioni necessarie per la gestione ed il controllo del trasferimento dati,
+per la formazione della <strong>connessione</strong> tra due utenti e per la sincronizzazione tra due applicazioni.</p>
+
+<h4>Livello di presentazione</h4>
+
+<p>Il livello di Presentazione è interessato alla corretta interpretazione dei dati scambiati fra i calcolatori,
+indipendentemente dai codici e dalle particolari convenzioni impiegate da ciascun sistema (compressione, cifratura, <em>endianness</em>).</p>
+
+<h4>Livello applicazione</h4>
+
+<p>Il livello Applicazione contiene tutti i programmi utente (e di sistema) che consentono di svolgere
+le varie attività in rete. Questo livello contiene diversi protocolli, che comunicano direttamente con
+le applicazioni.</p>
+
+<h2>Suite di protocolli Internet (architettura TCP/IP)</h2>
+
+<p>È detto <strong>architettura TCP/IP</strong> il modello di architettura di rete a strati che utilizza la cosiddetta <strong>suite di protocolli Internet</strong>.</p>
+
+<p>Essa rappresenta lo standard <em>de facto</em> nell'ambito delle reti dati, in contrapposizione allo standard <em>de iure</em> rappresentato invece dal modello ISO-OSI.</p>
+
+<h3>Livelli TCP/IP</h3>
+
+<p>A differenza di OSI, l'architettura di TCP/IP è a quattro livelli (più quello fisico), ognuno con determinati protocolli:</p>
+
+<table class="vcolor">
+    <tr><th>Corrispondente layer OSI</th><th>Layer</th> <th>Protocolli usati</th> <th>Tipologia</th> <th>Scopo</th></tr>
+    <tr><td>Application</td><td rowspan="3"><b>Application</b></td><td rowspan="3">Telnet, FTP, SMTP, DNS, ...</td><td rowspan="4"><b>End-to-end</b> (trasferimento di informazioni da un host all'altro)</td><td rowspan="3">Trasportare le informazioni specifiche a ciascuna applicazione</td></tr>
+    <tr><td>Presentation</td></tr>
+    <tr><td>Session</td></tr>
+    <tr><td>Transport</td><td><b>Transport</b></td><td>TCP, UDP</td><td>Stabilire un flusso di informazioni tra due host</td></tr>
+    <tr><td>Network</td><td><b>Internet</b>(Network)</td><td>IP, ICMP, IGMP</td><td rowspan="3"><b>Hop-by-hop</b> (trasferimento di pacchetti da un nodo all'altro)</td><td>Far viaggiare i pacchetti attraverso la rete</td></tr>
+    <tr><td>Data Link</td><td><b>Data Link</b></td><td>ARPANET, Packet Radio, LAN</td><td></td></tr>
+    <tr><td>Livello fisico</td><td><b>Livello fisico</b><td>Device drivers e schede di interfaccia</td></tr>
+</table>
+
+
+<p>In Unix, Application layer è un processo utente, mentre i layers del TCP/IP fanno parte del kernel.</p>
+
+<h2>Tipi di reti</h2>
+
+<h3>Classificazione in base alla qualità del servizio</h3>
+
+<p>Un <strong>servizio orientato alla connessione</strong> è affidabile. Un <strong>servizio senza connessione</strong> (o <strong>datagram</strong>) non offre garanzie di ricezione.</p>
+
+<h3>Classificazione in base all'estensione</h3>
+
+<p>A seconda dell'estensione geografica, si distinguono diversi tipi di reti:</p>
+
+<ul>
+<li><strong>BAN</strong> (<em>Body Area Network</em>) se la rete si estende intorno al corpo dell'utilizzatore con una estensione dell'ordine del metro</li>
+<li><strong>PAN</strong> (<em>Personal Area Network</em>) se la rete si estende intorno all'utilizzatore con una estensione di alcuni metri</li>
+<li><strong>LAN</strong> (<em>Local Area Network</em>) se la rete si estende all'interno di un edificio o di un comprensorio, con una estensione entro alcuni chilometri</li>
+<li><strong>MAN</strong> (<em>Metropolitan Area Network</em>) se la rete si estende all'interno di una città</li>
+<li><strong>WAN</strong> (<em>Wide Area Network</em>) se la rete ricopre un'area geografica molto estesa e che intercorre nelle reti precedenti</li>
+<li><strong>GAN</strong> (<em>Global Area Network</em>) se la rete collega calcolatori dislocati in tutto il mondo, anche via satellite</li>
+</ul>
+
+
+<p>In ogni rete di grandi dimensioni (WAN), è individuabile una <strong>sezione di accesso</strong> e una <strong>sezione di trasporto</strong>:</p>
+
+<ul>
+<li>la sezione di accesso ha lo scopo di consentire l'accesso alla rete da parte dell'utente</li>
+<li>la sezione di trasporto ha il compito di trasferire l'informazione tra vari nodi di accesso, utilizzando se è necessario anche nodi di transito</li>
+</ul>
+
+
+<h3>Classificazione in base alla topologia</h3>
+
+<h4>Reti punto a punto (point-to-point)</h4>
+
+<p>Consistono in un insieme di collegamenti tra coppie di elaboratori, che formano grafi di vario tipo (stella, anello, albero, grafo completo, anelli secanti ecc.).
+Per passare da una sorgente ad una destinazione, l'informazione deve attraversare diversi elaboratori intermedi.</p>
+
+<p>La strada che i dati devono seguire per arrivare correttamente a destinazione, è data dai <strong>protocolli di routing</strong>.</p>
+
+<h4>Reti broadcast e multicast</h4>
+
+<p>Sono formate da un unico mezzo fisico condiviso da più elaboratori, dove i messaggi inviati da un elaboratore vengono ricevuti da tutti gli altri.</p>
+
+<p>All'interno del messaggio vi è una parte relativa all'indirizzo del destinatario, in modo che tutte le altre macchine in ascolto possano scartare il messaggio in arrivo.</p>
+
+<p>Alcune reti (come la rete Ethernet) prevedono indirizzi speciali di tipo broadcast, multicast e unicast:</p>
+
+<ul>
+<li>il <strong>broadcast</strong> permette di inviare messaggi a tutte le stazioni collegate al mezzo fisico</li>
+<li>il <strong>multicast</strong> permette di inviare messaggi ad un gruppo di stazioni, che si sono precedentemente registrate per il gruppo multicast a cui il messaggio è inviato</li>
+<li>il <strong>unicast</strong> permette di inviare messaggi ad uno specifico destinatario (corrisponde ad un collegamento point-to-point)</li>
+</ul>
+
+
+<p>Gli host delle reti broadcast/multicast condividono lo stesso mezzo di comunicazione. Sono possibili diverse tipologie (bus, anello, stella&hellip;), ad ognuna delle quali corrispondono diversi <strong>meccanismi di arbitraggio</strong>, per decidere chi deve trasmettere e per risolvere eventuali <em>collisioni</em> (es: round robin, token ring, &hellip;).</p>
+
+<h3>Classificazione in base al tipo di multiplazione/commutazione</h3>
+
+<h4>Commutazione di circuito (multiplazione deterministica)</h4>
+
+<p>In una rete a commutazione di circuito la capacità del canale trasmissivo è interamente dedicata ad una specifica comunicazione.<br/>
+Una parte della capacità trasmissiva totale in uscita al multiplatore è stabilmente assegnata a ciascun canale tributario in ingresso.</p>
+
+<p>Ciascun utilizzatore ha a disposizione un canale trasmissivo dedicato, con la garanzia di avere sempre disponibile tutta la capacità allocata ad ogni richiesta di servizio.</p>
+
+<p>L'allocazione della capacità può essere statica (configurata manualmente dal gestore della rete) o dinamica (richiede la creazione di una connessione, e il successivo abbattimento)</p>
+
+<p>Gli elementi intermedi, o <em>centraline di comunicazione</em>, creano circuiti fisici point-to-point. Le tariffazioni applicate alla commutazione di circuito sono tendenzialmente a tempo.</p>
+
+<h4>Commutazione di pacchetto (multiplazione statistica)</h4>
+
+<p>Il flusso di informazioni è segmentato in <strong>pacchetti</strong> di lunghezza limitata o fissa, che sono contrassegnati da un <em>preambolo</em> e un <em>epilogo</em> per permettere il loro riconoscimento all'interno del flusso di dati e che contengono le informazioni necessarie per definire il destinatario della trasmissione. Un tipico esempio è <strong>IP</strong>.</p>
+
+<p>La commutazione di pacchetto si rivela molto più efficiente nonostante la maggior quantità di dati inviata, in quanto i canali fisici sono utilizzati solo per il tempo strettamente necessario.<br/>
+Inoltre, poiché ogni pacchetto porta con sé la sua identificazione, una rete può trasportare nello stesso tempo pacchetti provenienti da sorgenti differenti.</p>
+
+<p>Essa permette quindi a più utenti di inviare informazioni attraverso la rete in modo efficiente e simultaneo, risparmiando tempo e costi mediante la condivisione di uno stesso canale trasmissivo (cavo elettrico, ethernet, fibra ottica ecc.).</p>
+
+<p>È possibile aggiungere una <em>priorità</em> ai pacchetti, garantendo la cosiddetta <strong>qualità di servizio</strong> (<em>QoS</em>), ovvero che un numero sufficiente di essi venga inviato, a scapito di altri pacchetti che non abbiano un'urgenza specifica.</p>
+
+<p>I pacchetti percorrono sempre la &ldquo;strada&rdquo; migliore e più breve per arrivare a destinazione, ma possono subire dei ritardi, o una perdita di pacchetti causata da congestione o da errori di trasmissione.</p>
+
+<h4>Commutazione di circuito virtuale</h4>
+
+<p>Riunisce i pregi delle tipologie precedenti: possiede la velocità della commutazione di circuito e la robustezza della commutazione di pacchetto. Un tipico esempio è <strong>TCP</strong>.</p>
+
+<p>La &ldquo;strada&rdquo; per arrivare a destinazione viene calcolata a priori, e successivamente vengono inviati tutti i pacchetti sulla stessa strada.</p>
+
+<p>La connessione logica (a commutazione di pacchetto) è costruita in maniera tale che più connessioni logiche o <strong>canali virtuali</strong> possano condividere la stessa connessione fisica attraverso una forma di multiplazione asincrona.</p>
+
+<p>Perché il trasporto avvenga in modo corretto, i pacchetti vengono etichettati con un identificativo (detto <strong>VCI</strong>) associato al canale logico di appartenenza. Quindi vengono trasmessi tutti tramite lo stesso canale fisico in ordine. Alla ricezione i pacchetti vengono smistati dall'apparato di ricezione in base al VCI.</p>
+
+<p>Come per la commutazione a circuito, la connessione tra i due estremi va stabilita prima dello scambio dei dati e rilasciata al termine. Questo riduce anche l'overhead della commutazione di pacchetto, in quanto ogni pacchetto non dovrà riportare gli indirizzi di mittente e destinatario (indicati all'avvio della connessione), ma solo il VCI.</p>
+</body>
+</html>
